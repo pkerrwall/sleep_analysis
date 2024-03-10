@@ -1,3 +1,4 @@
+from pathlib import Path
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -5,8 +6,17 @@ import plotly.express as px
 # set page config with wide layout
 st.set_page_config(layout="wide", page_title="Sleep Analysis", page_icon=":shark:")
 
+st.header('Sleep Analysis')
+
 # add upload in sidebar
 orig_df = st.sidebar.file_uploader("Choose a file", type=['csv'])
+
+# add link to download the example file in examples/Individual_sleep_activity_bout_data.csv
+st.sidebar.download_button(
+    "Download example file", Path("examples/Individual_sleep_activity_bout_data.csv").read_text(), 
+    "example.csv", "text/csv", key="example-file-download"
+)
+
 
 # if the user has uploaded a file then do the rest of this script
 if orig_df is not None:
