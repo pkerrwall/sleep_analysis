@@ -16,7 +16,7 @@ st.header('Sleep Analysis')
 #Make the options Option A, Option B, and Option C
 #input = st.sidebar.selectbox('Select an option', ['Option A', 'Option B', 'Option C'])
 
-orig_df = st.file_uploader("Choose a file", type=['csv'])
+orig_df = st.sidebar.file_uploader("Choose a file", type=['csv'])
 
         
 
@@ -32,9 +32,9 @@ orig_df = st.file_uploader("Choose a file", type=['csv'])
 
 # if the user has uploaded a file then do the rest of this script
 if orig_df is None:
-    download = st.download_button(
-    "Download example file", Path("examples/Individual_sleep_activity_bout_data.csv").read_text(), 
-    "example.csv", "text/csv", key="example-file-download"
+    download = st.sidebar.download_button(
+    "Download Sleep bout", Path("examples/Sleep_bout.csv").read_text(), 
+    "Sleep_bout.csv", "text/csv", key="example-file-download"
     )
 else:
 

@@ -16,16 +16,16 @@ st.header('Sleep Analysis')
 #Make the options Option A, Option B, and Option C
 #input = st.sidebar.selectbox('Select an option', ['Option A', 'Option B', 'Option C'])
 
-orig_df = st.file_uploader("Choose a file", type=['csv'])
+orig_df = st.sidebar.file_uploader("Choose a file", type=['csv'])
 
 
 
 
 
 if orig_df is None:
-    st.download_button(
-    "Download option 3 file", Path("/home/twall5/sleep_analysis/Notebooks/Average_sleep_profiles_in_LD_analyzed.csv").read_text(), 
-    "example.csv", "text/csv", key="example-3-file-download"
+    st.sidebar.download_button(
+    "Download Average Sleep", Path("examples/Average_sleep.csv").read_text(), 
+    "Average_sleep.csv", "text/csv", key="example-3-file-download"
     )
 else:
     #Read in dataframe
