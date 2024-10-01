@@ -25,7 +25,7 @@ if orig_df is not None:
     df = pd.read_csv(orig_df)
 
     #Get the number
-    df['Channel#'] = df['Channel'].str.replace("Monitor7_ch", "").astype(int)
+    df['Channel#'] = df['Channel'].str.replace(".*_ch", "", regex=True).astype(int)
 
     #Sort it by Day/Night column and then by Channel# column
     df = df.sort_values(by=['Light_status', 'Channel#'])
@@ -65,7 +65,6 @@ if orig_df is not None:
 
     #again, make it so that the Channel# column is the index
     data_df = data_df.set_index('Channel#')
-
 
     #Show data_df dataframe on the streamlit with an option to download it
     st.write(data_df)
