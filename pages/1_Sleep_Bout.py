@@ -50,6 +50,7 @@ if orig_df is not None:
     # add select for channels with all selected by default
     #selected_channels = st.multiselect('Select Channels', channels, default=channels)
 
+
     # filter sleep_count = 0
     df = df[df['sleep_counts'] != 0]
 
@@ -104,6 +105,9 @@ if orig_df is not None:
     # format bout_sum_mean and bout_length_mean_mean to 2 decimal places
     grouped2['bout_sum_mean'] = grouped2['bout_sum_mean'].apply(lambda x: round(x, 2))
     grouped2['bout_length_mean_mean'] = grouped2['bout_length_mean_mean'].apply(lambda x: round(x, 2))
+
+    #Group the header by the collumn "Condition"
+    grouped2 = grouped2.sort_values(by=['Condition'])
 
     # create 2 streamlit columns
     col1, col2 = st.columns(2)
