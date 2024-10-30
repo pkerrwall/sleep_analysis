@@ -80,6 +80,8 @@ if orig_df is not None:
     #Sort the data_df by the conditions column
     data_df = data_df.sort_values(by='Condition')
 
+    data_df1 = data_df.copy()
+
     #Get each unique condition
     conditions = data_df['Condition'].unique()
 
@@ -94,3 +96,8 @@ if orig_df is not None:
     #Show data_df dataframe on the streamlit with an option to download it
     st.write(data_df)
     st.download_button('Download Data', data_df.to_csv(), 'data.csv', 'text/csv')
+
+    #Add the conditions to the dataframe and print that one, make a button to download everything
+    st.write(data_df1)
+    st.download_button('Download Data with Conditions', data_df1.to_csv(), 'data_with_conditions.csv', 'text/csv')
+
