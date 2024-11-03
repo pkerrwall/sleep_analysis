@@ -112,6 +112,20 @@ if orig_df is not None:
     # create 2 streamlit columns
     col1, col2 = st.columns(2)
 
+    #Move the condition collumn to the second collumn in both grouped and grouped2
+    grouped = grouped[['day_or_night', 'Condition', 'Channel', 'channel_num', 'date', 'bout_sum', 'bout_length_sum', 'bout_length_mean']]
+    grouped2 = grouped2[['day_or_night', 'Condition', 'Channel', 'channel_num', 'bout_sum_mean', 'bout_length_mean_mean']]
+
+    #make copies of grouped and grouped 2
+    grouped1 = grouped.copy()
+    grouped2_1 = grouped2.copy()
+
+    #Sort each by the condition column
+    grouped1 = grouped.sort_values(by='Condition')
+    grouped2_1 = grouped2.sort_values(by='Condition')
+
+
+
     # print the grouped dataframe
     col1.header('Grouped By Day')
     
@@ -135,3 +149,23 @@ if orig_df is not None:
 
     # print the dataframe without the index
     col2.dataframe(grouped2, hide_index=True)
+
+    #Get each unique conditions in grouped1
+    conditions = grouped1['Condition'].unique()
+    #Get each unique conditions in grouped2_1
+    conditions2 = grouped2_1['Condition'].unique()
+    #Make a drop down of both conditions and conditions2
+    condition = col1.selectbox('Select Condition for day', conditions)
+    condition2 = col2.selectbox('Select Condition for night', conditions2)
+    #Filter the grouped1 dataframe by the selected condition
+    grouped1 = grouped1[grouped1['Condition'] == condition]
+    #Filter the grouped2_1 dataframe by the selected condition
+    grouped2_1 = grouped2_1[grouped2_1['Condition'] == condition2]
+    #Show the grouped1 dataframe
+    col1.dataframe(grouped1, hide_index=True)
+    #Show the grouped2_1 dataframe
+    col2.dataframe(grouped2_1, hide_index=True)
+    #Add a download button for both grouped1 and grouped2_1
+    col1.download_button('Download Grouped Day Data', grouped1.to_csv(index=False), 'grouped1.csv', 'text/csv')
+    col2.download_button('Download Grouped Night Data', grouped2_1.to_csv(index=False), 'grouped2_1.csv', 'text/csv')
+
