@@ -35,7 +35,25 @@ if orig_df is not None:
     
     # remove the 'Unamed: 0' column
     table = table.drop(columns=['Unnamed: 0'])
+
+    #Clone table
+    table1 = table.copy()
     st.write(table)
+    #Make a download data button
+    st.download_button('Download Entire Table', table.to_csv(), file_name='average_sleep.csv', mime='text/csv')
+
+    #Get all unique conditions in table1
+    conditions = table1['Condition'].unique()
+    #Make a dropdown menu for the user to select a condition
+    condition = st.selectbox('Select a condition', conditions)
+    #Filter table1 to only include the selected condition
+    table1 = table1[table1['Condition'] == condition]
+    #Move the condition column to the front of the table
+    first_column = table1.pop('Condition')
+    table1.insert(0, 'Condition', first_column)
+    st.write(table1)
+    #Make a download button for table1
+    st.download_button('Download Specific Collumn', table1.to_csv(), file_name='average_sleep.csv', mime='text/csv')
 
     #def scatter_plot (save, Label, table):
     #figure = table
