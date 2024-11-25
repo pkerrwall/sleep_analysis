@@ -12,7 +12,7 @@ import os
 
 st.title('Individuial Sleep Analysis')
 
-orig_df = st.sidebar.file_uploader("Choose a file", type=['csv'])
+orig_df = st.sidebar.file_uploader("Choose a file")
 
 st.sidebar.download_button(
     "Download Individual Sleep Analysis Example", Path("examples/individual_sleep.csv").read_text(), 

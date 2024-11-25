@@ -15,7 +15,7 @@ import plotly.express as px
 st.title('Average Sleep Analysis')
 
 
-orig_df = st.sidebar.file_uploader("Choose a file", type=['csv'])
+orig_df = st.sidebar.file_uploader("Choose a file")
 st.sidebar.download_button(
     "Download Average Sleep Example", Path("examples/average_sleep.csv").read_text(), 
     "average_sleep.csv", "text/csv", key="example-3-file-download"

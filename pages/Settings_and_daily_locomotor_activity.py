@@ -11,7 +11,7 @@ download_path = "/home/twall5/sleep_analysis-3/Monitor9.txt"
 st.write("# Settings and Daily Locomotor Activity Analysis")
 
 # --- File Upload ---
-uploaded_files = st.sidebar.file_uploader("Choose DAM Monitor Files", type=["txt"], accept_multiple_files=True)
+uploaded_files = st.sidebar.file_uploader("Choose DAM Monitor Files", accept_multiple_files=True)
 #Make a uploaded_files variable that automatically uploads the Monitor9.txt file
 #uploaded_files = [download_path]
 
@@ -304,13 +304,38 @@ if uploaded_files:
             s_1 = data_42[data_42["date"].isin(range_of_days)]
             return s_1
 
-        # Example usage
-        data_x = merged_data  # Assuming merged_data is the dataframe with the necessary columns
-        required_columns = ["V2", "V3", "V4", "V5"]
-        if all(col in merged_data.columns for col in required_columns):
-            data_43 = create_dataframe_with_date_info(data_x, monitor_data_status_1, renamed_data_44)
-            data_42 = reformat_date_information(data_43)
-            s_1 = subset_data_to_date_range(data_42, range_of_days)
-            st.write(s_1)
-        else:
-            st.write("Required columns are missing in the data.")
+        #Convert the following R code into python code
+        #Counts the number of days in a dataset
+        number_of_days = len(date_and_light_cycle_2["date"].unique())
+
+
+        #Convert the following R code into python code
+        #Function converting time into decimal values
+        def decimateTime(time):
+            time = time.split(":")
+            time = int(time[0])*60 + int(time[1]) + int(time[2])/60
+            return time
+
+        #Convert the following R code into python code, use the subset_data_to_date_range function
+        #Subsets the data to a range of dates
+        s_1 = create_dataframe_with_date_info(dataframes[0], monitor_data_status_1, renamed_data_44)
+        s_1 = reformat_date_information(s_1)
+        s_1 = subset_data_to_date_range(s_1, range_of_days)
+
+
+
+#Convert this R / Shiny code to python
+#Create a numeric input for the number of conditions
+Number_of_conditions = st.number_input("Number of Conditions", min_value=1, value=1)
+"""# A vector of colors    
+Plot_colors <- eventReactive(input$go, {
+  files <- inFile()
+  p <- unlist(lapply(1:input$Number_of_conditions, function(i){All_inputs()[[paste0("Condition_colour",i)]]}))
+  p
+})"""
+#Convert this R code to python
+#Create a dataframe with the conditions
+Conditions = pd.DataFrame({
+    "Conditions": [f"Condition {i+1}" for i in range(Number_of_conditions)]
+})
+st.write(Conditions)

@@ -12,7 +12,7 @@ import os
 st.title('Sleep Bout Analysis')
 
 # File uploader
-orig_df = st.sidebar.file_uploader("Choose a file", type=['csv'])
+orig_df = st.sidebar.file_uploader("Choose a file")
 st.sidebar.download_button(
     "Download Sleep Bout Analysis Example", Path("examples/sleep_bout.csv").read_text(), 
     "sleep_bout.csv", "text/csv", key="example-file-download"
