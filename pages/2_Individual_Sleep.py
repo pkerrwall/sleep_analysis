@@ -15,7 +15,7 @@ st.title('Individuial Sleep Analysis')
 orig_df = st.sidebar.file_uploader("Choose a file")
 
 st.sidebar.download_button(
-    "Download Individual Sleep Analysis Example", Path("examples/individual_sleep.csv").read_text(), 
+    "Download Individual Sleep Analysis Example", Path("examples/shiny_tool/sleep_analysis_results/Individual_day_night_sleep.csv").read_text(), 
     "individual_sleep.csv", "text/csv", key="example-2-file-download"
 )
 
