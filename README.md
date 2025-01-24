@@ -1,5 +1,14 @@
 # sleep_analysis
 
+### Streamilt App To-DO
+- Main Settings Page:
+    - Locomotor_activity_by_day.csv
+    - Nighttime_daytime_activity_ratio.csv
+- Sleep Analysis
+    - Individual_day_night_sleep.csv numbers are slightly off
+    
+
+
 ### Shiny App
 * https://karolcichewicz.shinyapps.io/shinyr-dam/
 * git - https://github.com/KarolCichewicz/ShinyR-DAM/
