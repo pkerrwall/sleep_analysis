@@ -119,6 +119,7 @@ if uploaded_files:
     #Make this download into a .csv file, use pandas to create a dataframe and then use the .to_csv() function to save it as a .csv file
     if st.button("Start Analysis"):
         df = pd.read_csv(uploaded_files[0], sep='\t', header=None)
+        new_df = df.copy()
         st.header("Locomotor activity in LD")
         #Give the columns names
         #Index,Date,Time,LD-DD,Status,Extras,Monitor_Number,Tube_Number,Data_Type,Unused,Light_Sensor,data_1,data_2,data_3,data_4,data_5,data_6,data_7,data_8,data_9,data_10,data_11,data_12,data_13,data_14,data_15,data_16,data_17,data_18,data_19,data_20,data_21,data_22,data_23,data_24,data_25,data_26,data_27,data_28,data_29,data_30,data_31,data_32
@@ -217,5 +218,47 @@ if uploaded_files:
         Daily_locomotor_activity = pd.DataFrame(data={'Condition': [condition_name], 'Light_Cycle': [LD_DD_Analysis], 'Mean': [mean], 'SD': [std], 'SEM': [sem], 'N_of_alive_flies': [n_of_alive_flies], 'N_of_dead_flies': [n_of_dead_flies], 'N_of_all_flies': [n_of_all_flies]})
 
         st.write(Daily_locomotor_activity)
-        #st.write(data_df_total)
-        #st.write(df)
+
+
+        #Individual Locomotor Activity by Day
+        
+        individual_locomotor_activity_day = data_df_total.reset_index()
+        #drop the mean row
+        individual_locomotor_activity_day = individual_locomotor_activity_day.drop([individual_locomotor_activity_day.index[-1]])
+        # unpivot the dataframe with Date as the index and the columns as the data_1 - data_32
+        locomotor_day_unpivoted = individual_locomotor_activity_day.melt(id_vars=['Date'], value_vars=numeric_cols, var_name='Channel', value_name='Counts')
+        locomotor_day_unpivoted_alive = locomotor_day_unpivoted[locomotor_day_unpivoted['Channel'].isin(available_channels)]
+        locomotor_activity_by_day = locomotor_day_unpivoted_alive.groupby('Date')['Counts'].agg(['mean', 'sum', 'std', 'sem']).reset_index()
+        
+        st.header("Locomotor activity by day")
+        st.write(locomotor_activity_by_day)
+
+        #Nighttime daytime activity ratio
+
+        #new_df = pd.read_csv(uploaded_files[0], sep='\t', header=None)
+        # Give the columns names
+        # Index,Date,Time,LD-DD,Status,Extras,Monitor_Number,Tube_Number,Data_Type,Unused,Light_Sensor,data_1,data_2,data_3,data_4,data_5,data_6,data_7,data_8,data_9,data_10,data_11,data_12,data_13,data_14,data_15,data_16,data_17,data_18,data_19,data_20,data_21,data_22,data_23,data_24,data_25,data_26,data_27,data_28,data_29,data_30,data_31,data_32
+        new_df.columns = ['Index','Date','Time','LD-DD','Status','Monitor_Number','Extras','Tube_Number','Data_Type','Light_Sensor','data_1','data_2','data_3','data_4','data_5','data_6','data_7','data_8','data_9','data_10','data_11','data_12','data_13','data_14','data_15','data_16','data_17','data_18','data_19','data_20','data_21','data_22','data_23','data_24','data_25','data_26','data_27','data_28','data_29','data_30','data_31','data_32']
+
+        new_df['Date_Time'] = new_df['Date'] + ' ' + new_df['Time']
+        new_df['Date_Time'] = pd.to_datetime(new_df['Date_Time'], format='%d %b %y %H:%M:%S')
+
+        # change Date to date columns with format yyyy-mm-dd
+        new_df['Date'] = pd.to_datetime(new_df['Date'], format='%d %b %y')
+        new_df['LD_DD'] = new_df['Date_Time'].dt.time
+        new_df['LD_DD'] = new_df['LD_DD'].apply(lambda x: 'LD' if x >= pd.to_datetime(LD_start).time() and x <= pd.to_datetime('18:00').time() else 'DD')
+        new_df = new_df[(new_df['Date_Time'] >= pd.to_datetime(start_date)) & (new_df['Date_Time'] <= pd.to_datetime(end_date))]
+        #st.write(new_df)
+        #Make the data_1, data_2, etc columns into ch1, ch2, etc
+        new_df = new_df.rename(columns={'data_1':'ch1','data_2':'ch2','data_3':'ch3','data_4':'ch4','data_5':'ch5','data_6':'ch6','data_7':'ch7','data_8':'ch8','data_9':'ch9','data_10':'ch10','data_11':'ch11','data_12':'ch12','data_13':'ch13','data_14':'ch14','data_15':'ch15','data_16':'ch16','data_17':'ch17','data_18':'ch18','data_19':'ch19','data_20':'ch20','data_21':'ch21','data_22':'ch22','data_23':'ch23','data_24':'ch24','data_25':'ch25','data_26':'ch26','data_27':'ch27','data_28':'ch28','data_29':'ch29','data_30':'ch30','data_31':'ch31','data_32':'ch32'})
+        df_ld_dd = new_df.groupby(['Date','LD_DD'])[numeric_cols].sum()
+        df_ld_dd.reset_index(inplace=True)
+
+        df_melt_ld_dd = df_ld_dd.melt(id_vars=['Date','LD_DD'], value_vars=numeric_cols, var_name='Channel', value_name='Counts')
+        df_melt_ld_dd_alive = df_melt_ld_dd[df_melt_ld_dd['Channel'].isin(available_channels)]
+        df_by_LD_DD = df_melt_ld_dd_alive.groupby('LD_DD')['Counts'].agg(['mean', 'sum', 'std', 'sem']).reset_index()
+        
+        st.header("Daytime vs Nighttime activity in LD")
+        st.write(df_by_LD_DD)
+    
+
