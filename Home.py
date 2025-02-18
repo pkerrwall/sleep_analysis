@@ -120,6 +120,7 @@ if uploaded_files:
     if st.button("Start Analysis"):
         df = pd.read_csv(uploaded_files[0], sep='\t', header=None)
         new_df = df.copy()
+
         st.header("Locomotor activity in LD")
         #Give the columns names
         #Index,Date,Time,LD-DD,Status,Extras,Monitor_Number,Tube_Number,Data_Type,Unused,Light_Sensor,data_1,data_2,data_3,data_4,data_5,data_6,data_7,data_8,data_9,data_10,data_11,data_12,data_13,data_14,data_15,data_16,data_17,data_18,data_19,data_20,data_21,data_22,data_23,data_24,data_25,data_26,data_27,data_28,data_29,data_30,data_31,data_32
@@ -185,6 +186,8 @@ if uploaded_files:
 
         # Create a new row that is the mean of all the ch columns
         numeric_cols = data_df_total.columns[3:]  # Exclude 'Condition', 'Light_Cycle', 'Name'
+        #session state numeric_cols
+        st.session_state.numeric_cols = numeric_cols
         data_df_total.loc['Mean', numeric_cols] = data_df_total[numeric_cols].mean()
 
 
@@ -207,6 +210,9 @@ if uploaded_files:
                         unavailble_channels.append(ch)
                         break
         n_of_alive_flies = n_of_all_flies - n_of_dead_flies
+        #create save session state for unavailabe_channels and available channels
+        st.session_state.unavailble_channels = unavailble_channels
+        st.session_state.available_channels = available_channels
 
         # On the mean row, add up all the columns from ch1 to ch32, put this into a new variable called mean
         mean = data_df_total.loc['Mean', available_channels].sum() / n_of_alive_flies
@@ -248,6 +254,9 @@ if uploaded_files:
         new_df['LD_DD'] = new_df['Date_Time'].dt.time
         new_df['LD_DD'] = new_df['LD_DD'].apply(lambda x: 'LD' if x >= pd.to_datetime(LD_start).time() and x <= pd.to_datetime('18:00').time() else 'DD')
         new_df = new_df[(new_df['Date_Time'] >= pd.to_datetime(start_date)) & (new_df['Date_Time'] <= pd.to_datetime(end_date))]
+        sleep_analysis_df = new_df.copy()
+        #create session state for sleep_analysis_df
+        st.session_state.sleep_analysis_df = sleep_analysis_df
         #st.write(new_df)
         #Make the data_1, data_2, etc columns into ch1, ch2, etc
         new_df = new_df.rename(columns={'data_1':'ch1','data_2':'ch2','data_3':'ch3','data_4':'ch4','data_5':'ch5','data_6':'ch6','data_7':'ch7','data_8':'ch8','data_9':'ch9','data_10':'ch10','data_11':'ch11','data_12':'ch12','data_13':'ch13','data_14':'ch14','data_15':'ch15','data_16':'ch16','data_17':'ch17','data_18':'ch18','data_19':'ch19','data_20':'ch20','data_21':'ch21','data_22':'ch22','data_23':'ch23','data_24':'ch24','data_25':'ch25','data_26':'ch26','data_27':'ch27','data_28':'ch28','data_29':'ch29','data_30':'ch30','data_31':'ch31','data_32':'ch32'})
