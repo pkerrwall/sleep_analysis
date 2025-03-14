@@ -61,34 +61,20 @@ if st.button("Generate Sleep Analysis"):
     #st.write(available_channels)
     df_sleep_trim_alive = df_sleep_trim.drop(unavailable_channels, axis=1)
     
-    df_sleep_calc_list = []
-
-    # loop through df_sleep_trim_alive
-    for i in range(0, len(df_sleep_trim_alive)):
-    #for i in range(0,2):
-        current_row_list = [df_sleep_trim_alive.iloc[i]['Date_Time'], df_sleep_trim_alive.iloc[i]['zt_time']]
-        for col in available_channels:
-            # get the 5 min window
-            five_min_window = df_sleep_trim_alive.iloc[i:i+5][col]
-            #print(five_min_window)
-            five_min_window_sum = five_min_window.sum()
-            #print(five_min_window_sum)
-
-            #print(f"index={i}, Date_Time={df_sleep_trim_alive.iloc[i]['Date_Time']}, zt_time={df_sleep_trim_alive.iloc[i]['zt_time']}, col={col}, five_min_window={five_min_window}")
-            if five_min_window_sum == 0:
-                sleep = 1
-            else:
-                sleep = 0
-            # add the sleep event to the df_sleep_calc_list
-            current_row_list.append(sleep)
-        df_sleep_calc_list.append(current_row_list)
-    df_sleep_calc = pd.DataFrame(df_sleep_calc_list, columns=['Date_Time', 'zt_time'] + available_channels)
+    # Vectorized calculation for sleep
+    df_sleep_trim_alive = df_sleep_trim_alive.set_index('Date_Time')
+    sleep_calc_df = df_sleep_trim_alive.rolling(5).sum().applymap(lambda x: 1 if x == 0 else 0)
     
-    df_sleep_calc['mean'] = df_sleep_calc[available_channels].mean(axis=1)
-    df_sleep_calc['sem'] = df_sleep_calc[available_channels].sem(axis=1)
+    # Add zt_time back into the DataFrame
+    sleep_calc_df['zt_time'] = df_sleep_trim_alive.index.to_series().apply(zeitgeber_time)
+    sleep_calc_df = sleep_calc_df.reset_index()
+
+    # Calculate mean and sem
+    sleep_calc_df['mean'] = sleep_calc_df[available_channels].mean(axis=1)
+    sleep_calc_df['sem'] = sleep_calc_df[available_channels].sem(axis=1)
     
-    #st.write(df_sleep_calc)
-    avg_sleep_df = df_sleep_calc.copy()
+    #st.write(sleep_calc_df)
+    avg_sleep_df = sleep_calc_df.copy()
     avg_sleep_df['time'] = avg_sleep_df['Date_Time'].dt.time
 
     avg_sleep_df = avg_sleep_df[['time', 'mean']]
@@ -129,7 +115,7 @@ if st.button("Generate Sleep Analysis"):
         else:
             return 'Night'
 
-    ind_day_night = df_sleep_calc.copy()
+    ind_day_night = sleep_calc_df.copy()  # Use sleep_calc_df here instead of df_sleep_calc
     ind_day_night['Day_Night'] = ind_day_night['Date_Time'].apply(day_night)
 
     ind_day_night = ind_day_night[['Day_Night'] + available_channels]
@@ -148,37 +134,43 @@ if st.button("Generate Sleep Analysis"):
     st.write(ind_day_night_mean)
 
 
-    ind_sleep_bout_list = []
+    # Initialize list for bout data
+    bout_data = []
 
+    # Iterate over each available channel
     for col in available_channels:
-        #for col in ['data_10']:
-        print(col)
-        
-        # loop through df_sleep_calc and determine when it switches from 1 to 0 or 0 to 1
+        # Use diff to find transitions (0 -> 1 or 1 -> 0)
+        changes = sleep_calc_df[col].diff().fillna(0).apply(lambda x: 1 if x != 0 else 0)
 
-        # get the first value of the column
-        current_time = df_sleep_calc.iloc[0]['Date_Time']
-        current_value = df_sleep_calc.iloc[0][col]
-        #print(f"start_value={current_value}")
-        for i in range(1, len(df_sleep_calc)):
-        #for i in range(1, 1000):
-            if df_sleep_calc.iloc[i-1][col] != df_sleep_calc.iloc[i][col]:
-                #sleep_switch_list.append(df_sleep_calc.iloc[i]['zt_time'])
-                #print(f"sleep_switch_list={sleep_switch_list}")
-                new_value = df_sleep_calc.iloc[i][col]
-                            
-                # calcluate the time difference between the current and previous time
-                bout_time = (df_sleep_calc.iloc[i]['Date_Time'] - current_time)
-                
-                # convert timedelta to minutes
-                bout_time = bout_time.total_seconds() / 60
-                
-                #print(f"new_value={new_value}, current_time={current_time}, bout_time={bout_time}")
-                ind_sleep_bout_list.append([col, current_time, new_value, bout_time])
-                
-                current_value = df_sleep_calc.iloc[i][col]
-                current_time = df_sleep_calc.iloc[i]['Date_Time']
-                #print(f"current_value={current_value}")
-    ind_sleep_bout_df = pd.DataFrame(ind_sleep_bout_list, columns=['Channel', 'Time', 'Value', 'Bout_Length'])
+        # Get the indices of changes (where diff is not zero)
+        change_indices = changes[changes == 1].index
+        
+        # Initialize variables for the previous time and value
+        prev_value = sleep_calc_df.at[change_indices[0], col] if change_indices.size > 0 else None
+        prev_time = sleep_calc_df.at[change_indices[0], 'Date_Time'] if change_indices.size > 0 else None
+
+        for idx in change_indices:
+            current_value = sleep_calc_df.at[idx, col]
+            current_time = sleep_calc_df.at[idx, 'Date_Time']
+            
+            # Calculate the bout length only if the current and previous values differ
+            if prev_value is not None and prev_value != current_value:
+                bout_length = (current_time - prev_time).total_seconds() / 60  # Convert to minutes
+                bout_data.append({
+                    'Channel': col,
+                    'Time': prev_time,
+                    'Value': prev_value,
+                    'Bout_Length': bout_length
+                })
+            
+            # Update the previous value and time
+            prev_value = current_value
+            prev_time = current_time
+
+    # Create DataFrame for the individual sleep bouts
+    ind_sleep_bout_df = pd.DataFrame(bout_data)
+
+    # Display the resulting DataFrame
     st.header("Individual Sleep Bout")
     st.write(ind_sleep_bout_df)
+
