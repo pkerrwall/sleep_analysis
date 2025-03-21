@@ -45,7 +45,7 @@ if uploaded_files:
             
             if uploaded_files:
                 for j, file in enumerate(uploaded_files):
-                    st.write(f"File: {file.name}")
+                    #st.write(f"File: {file.name}")
                     monitor_order.append(st.text_input(f"Monitor Order for {file.name} (Condition {i+1})", value=f"Monitor {j+1}"))
                     plot_colors.append(st.color_picker(f"Pick Plot Color for {file.name} (Condition {i+1})", value="#BEBEBE"))
 
@@ -56,7 +56,8 @@ if uploaded_files:
                 "monitor_order": monitor_order,
                 "plot_colors": plot_colors
             })
-    
+
+        
     # --- Second Column: LD-DD Analysis ---
     with col2:
         st.subheader("LD-DD Analysis")
@@ -65,7 +66,7 @@ if uploaded_files:
 
         if LD_DD_Analysis == "LD":
             # Date range for LD phase
-            st.markdown("### Date Range for LD")
+            #st.markdown("#### Date Range for LD")
             ld_start_date = st.date_input("LD Start Date", value=datetime(2024, 2, 24))
             ld_end_date = st.date_input("LD End Date", value=datetime(2024, 2, 27))
 
@@ -77,19 +78,19 @@ if uploaded_files:
             end_date = ld_end_date + ' 23:59:59'
         elif LD_DD_Analysis == "DD":
             # Date range for DD phase
-            st.markdown("### Date Range for DD")
+            #st.markdown("#### Date Range for DD")
             dd_start_date = st.date_input("DD Start Date", value=datetime(2024, 1, 16))
             start_date = dd_start_date + ' 00:00:00'
             dd_end_date = st.date_input("DD End Date", value=datetime(2024, 1, 31))
             end_date = dd_end_date + ' 23:59:59'
         elif LD_DD_Analysis == "Both":
             # Date range for LD phase
-            st.markdown("### Date Range for LD")
+            #st.markdown("#### Date Range for LD")
             ld_start_date = st.date_input("LD Start Date", value=datetime(2024, 1, 1))
             ld_end_date = st.date_input("LD End Date", value=datetime(2024, 1, 15))
 
             # Date range for DD phase
-            st.markdown("### Date Range for DD")
+            #st.markdown("#### Date Range for DD")
             dd_start_date = st.date_input("DD Start Date", value=datetime(2024, 1, 16))
             dd_end_date = st.date_input("DD End Date", value=datetime(2024, 1, 31))
 
@@ -98,15 +99,15 @@ if uploaded_files:
         st.subheader("DAM System Settings")
 
         # DAM system data acquisition frequency
-        st.markdown("### DAM System Data Acquisition Frequency [min]")
+        #st.markdown("#### DAM System Data Acquisition Frequency [min]")
         dam_frequency = st.number_input("Enter the frequency in minutes", min_value=1, max_value=60, value=1)
 
         # Threshold for identifying dead flies
-        st.markdown("### Threshold of Counts per Day Identifying Dead Flies")
+        #st.markdown("### Threshold of Counts per Day Identifying Dead Flies")
         dead_fly_threshold = st.number_input("Threshold of Counts per Day", min_value=0, value=100)
 
         # Light onset time
-        st.markdown("### Light Onset Time")
+        #st.markdown("### Light Onset Time")
         light_onset_time = st.time_input("Enter the light onset time", value=time(6, 0))
 
     # Make a start analysis button that when the user clicks it, the analysis will start and for right now it prints out all of the variables
