@@ -56,6 +56,9 @@ if uploaded_files:
                 "monitor_order": monitor_order,
                 "plot_colors": plot_colors
             })
+        
+        #Create a graph for the Locomotor activity in LD
+
 
         
     # --- Second Column: LD-DD Analysis ---
@@ -246,13 +249,94 @@ if uploaded_files:
         with col1:
             st.header("Locomotor activity in LD")
             st.write(Daily_locomotor_activity)
+            # Make a graph of Daily_locomotor_activity
+            fig, ax = plt.subplots()
+            ax.bar(Daily_locomotor_activity['Condition'], Daily_locomotor_activity['Mean'], yerr=Daily_locomotor_activity['SEM'], capsize=5, color='grey')
+            ax.set_xlabel('Condition')
+            ax.set_ylabel('Mean Activity')
+            ax.set_title('Mean Activity by Condition')
+            ax.set_yticks([3000, 6000, 9000])  # Set y-axis ticks
+            st.pyplot(fig)
+
+            #Make a download button to download the Daily_locomotor_activity dataframe
+            # Convert the dataframe to a CSV
+            csv = Daily_locomotor_activity.to_csv(index=False)
+
+            # Create a download button for the CSV
+            st.download_button(
+                label="Download Daily Locomotor Activity as CSV",
+                data=csv,
+                file_name='Daily_Locomotor_Activity.csv',
+                mime='text/csv'
+            )
+            
+
 
         with col2:
             st.header("Locomotor activity by day")
             st.write(locomotor_activity_by_day)
 
+            # Make a graph of locomotor_activity_by_day
+            fig, ax = plt.subplots()
+            # Plot individual points for mean activity
+            ax.scatter(locomotor_activity_by_day['Date'], locomotor_activity_by_day['mean'], color='black', marker='o', s=50, label='Mean Activity')
+            # Plot error bars for SEM
+            for i, row in locomotor_activity_by_day.iterrows():
+                ax.errorbar(row['Date'], row['mean'], yerr=row['sem'], fmt='none', ecolor='grey', elinewidth=2, capsize=5, alpha=0.5)
+            ax.set_xlabel('Date')
+            ax.set_ylabel('Mean Activity')
+            ax.set_title('Mean Activity by Day')
+            st.pyplot(fig)
+
+            #Make the download button
+            # Convert the dataframe to a CSV
+            csv = locomotor_activity_by_day.to_csv(index=False)
+
+            # Create a download button for the CSV
+            st.download_button(
+                label="Download Locomotor Activity by Day as CSV",
+                data=csv,
+                file_name='Locomotor_Activity_by_Day.csv',
+                mime='text/csv'
+            )
+
+
+
         with col3:
             st.header("Daytime vs Nighttime activity in LD")
             st.write(df_by_LD_DD)
+
+            # Sort the data to ensure LD comes first and DD comes second
+            df_by_LD_DD = df_by_LD_DD.sort_values(by='LD_DD', key=lambda x: x.map({'LD': 0, 'DD': 1}))
+
+            # Make the graph for df_by_LD_DD
+            fig, ax = plt.subplots()
+            colors = {'LD': 'yellow', 'DD': 'blue'}
+            edge_colors = 'black'  # Black borders around the bars
+            ax.bar(df_by_LD_DD['LD_DD'], df_by_LD_DD['mean'], yerr=df_by_LD_DD['sem'], capsize=5, 
+                   color=[colors[cycle] for cycle in df_by_LD_DD['LD_DD']], edgecolor=edge_colors)
+            ax.set_xlabel('Light Cycle')
+            ax.set_ylabel('Mean Activity')
+            ax.set_title('Mean Activity by Light Cycle')
+            ax.set_yticks([2500, 5000, 7500])
+            ax.legend(handles=[plt.Line2D([0], [0], color='yellow', lw=4, label='Day (LD)'),
+                               plt.Line2D([0], [0], color='blue', lw=4, label='Night (DD)')], loc='upper right')
+            st.pyplot(fig)
+
+            #Make the download button
+            # Convert the dataframe to a CSV
+            csv = df_by_LD_DD.to_csv(index=False)
+
+            # Create a download button for the CSV
+            st.download_button(
+                label="Download Daytime vs Nighttime Activity in LD as CSV",
+                data=csv,
+                file_name='Daytime_vs_Nighttime_Activity_in_LD.csv',
+                mime='text/csv'
+            )
+
+
+
+    
     
 
