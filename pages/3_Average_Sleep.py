@@ -2,7 +2,7 @@ from pathlib import Path
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from natsort import index_natsorted
+#from natsort import index_natsorted
 #import matplotlib.pyplot as plt
 import numpy as np
 import argparse
@@ -23,15 +23,19 @@ st.sidebar.download_button(
 
 if orig_df is not None:
     
-    #Read in dataframe
+    # Read in dataframe
     table = pd.read_csv(orig_df)
 
-    #Dec_ZT_time column in chronological order
-    table = table.sort_values(by="Dec_ZT_time",key=lambda x: np.argsort(index_natsorted(table["Dec_ZT_time"])))
-    hours = table['Dec_ZT_time']/60
+    # Sort Dec_ZT_time column in chronological order
+    table = table.sort_values(by="Dec_ZT_time")
+
+    # Convert Dec_ZT_time to hours
+    hours = table['Dec_ZT_time'] / 60
     table['ZT_time_in_hours'] = hours
-    table['Sleep_30min'] = table['mean_binned_sleep']*30
-    table['SEM_30min'] = table['sem_binned_sleep']*30
+
+    # Calculate Sleep_30min and SEM_30min
+    table['Sleep_30min'] = table['mean_binned_sleep'] * 30
+    table['SEM_30min'] = table['sem_binned_sleep'] * 30
     
     # remove the 'Unamed: 0' column
     table = table.drop(columns=['Unnamed: 0'])

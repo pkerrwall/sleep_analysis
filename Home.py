@@ -56,6 +56,7 @@ if uploaded_files:
                 "monitor_order": monitor_order,
                 "plot_colors": plot_colors
             })
+
         
         #Create a graph for the Locomotor activity in LD
 
@@ -142,6 +143,7 @@ if uploaded_files:
         # Create a new column called "Condition" and put the condition in it
         df['Condition'] = condition_name
 
+
         # Create a new column called 'Light_Cycle' and just put LD_DD_Analysis in it
         df['Light_Cycle'] = LD_DD_Analysis
 
@@ -222,6 +224,7 @@ if uploaded_files:
         locomotor_day_unpivoted_alive = locomotor_day_unpivoted[locomotor_day_unpivoted['Channel'].isin(available_channels)]
         locomotor_activity_by_day = locomotor_day_unpivoted_alive.groupby('Date')['Counts'].agg(['mean', 'sum', 'std', 'sem']).reset_index()
         
+
         # Nighttime daytime activity ratio
         new_df.columns = ['Index','Date','Time','LD-DD','Status','Monitor_Number','Extras','Tube_Number','Data_Type','Light_Sensor','data_1','data_2','data_3','data_4','data_5','data_6','data_7','data_8','data_9','data_10','data_11','data_12','data_13','data_14','data_15','data_16','data_17','data_18','data_19','data_20','data_21','data_22','data_23','data_24','data_25','data_26','data_27','data_28','data_29','data_30','data_31','data_32']
 
@@ -241,98 +244,118 @@ if uploaded_files:
 
         df_melt_ld_dd = df_ld_dd.melt(id_vars=['Date','LD_DD'], value_vars=numeric_cols, var_name='Channel', value_name='Counts')
         df_melt_ld_dd_alive = df_melt_ld_dd[df_melt_ld_dd['Channel'].isin(available_channels)]
-        df_by_LD_DD = df_melt_ld_dd_alive.groupby('LD_DD')['Counts'].agg(['mean', 'sum', 'std', 'sem']).reset_index()
-        
-        # Create three columns
-        col1, col2, col3 = st.columns(3)
+        df_by_LD_DD = df_melt_ld_dd_alive.groupby('LD_DD')['Counts'].agg(['mean', 'sem']).reset_index()
 
-        with col1:
+        # Add Condition column to the final dataframe
+        df_by_LD_DD['Condition'] = condition_name
+
+        #create a session state for condition name
+        st.session_state.condition_name = condition_name
+
+        df_by_LD_DD = df_by_LD_DD.rename(columns={'LD_DD': 'Light_status'})
+
+        # Reorder columns to show Condition, Light_status, Mean, and SEM
+        df_by_LD_DD = df_by_LD_DD[['Condition', 'Light_status', 'mean', 'sem']]
+        
+        # Create tabs
+        tab1, tab2, tab3 = st.tabs(["Locomotor activity in LD", "Locomotor activity by day", "Daytime vs Nighttime activity in LD"])
+
+        with tab1:
             st.header("Locomotor activity in LD")
             st.write(Daily_locomotor_activity)
-            # Make a graph of Daily_locomotor_activity
-            fig, ax = plt.subplots()
-            ax.bar(Daily_locomotor_activity['Condition'], Daily_locomotor_activity['Mean'], yerr=Daily_locomotor_activity['SEM'], capsize=5, color='grey')
-            ax.set_xlabel('Condition')
-            ax.set_ylabel('Mean Activity')
-            ax.set_title('Mean Activity by Condition')
-            ax.set_yticks([3000, 6000, 9000])  # Set y-axis ticks
-            st.pyplot(fig)
+            
+            # Split the column into three smaller columns
+            col1_1, col1_2 = st.columns([2, 1])  # Adjust the width ratios as needed
+            
+            with col1_1:  # Place the graph in the middle column
+                # Make a graph of Daily_locomotor_activity
+                fig, ax = plt.subplots(figsize=(4, 2))  # Adjust the figure size
+                ax.bar(Daily_locomotor_activity['Condition'], Daily_locomotor_activity['Mean'], yerr=Daily_locomotor_activity['SEM'], capsize=5, color='grey')
+                ax.set_xlabel('Condition')
+                ax.set_ylabel('Mean Activity')
+                ax.set_title('Mean Activity by Condition')
+                ax.set_yticks([3000, 6000, 9000])  # Set y-axis ticks
+                st.pyplot(fig)
 
-            #Make a download button to download the Daily_locomotor_activity dataframe
+            # Make a download button to download the Daily_locomotor_activity dataframe
             # Convert the dataframe to a CSV
             csv = Daily_locomotor_activity.to_csv(index=False)
 
             # Create a download button for the CSV
             st.download_button(
-                label="Download Daily Locomotor Activity as CSV",
-                data=csv,
-                file_name='Daily_Locomotor_Activity.csv',
-                mime='text/csv'
+            label="Download Daily Locomotor Activity as CSV",
+            data=csv,
+            file_name='Daily_Locomotor_Activity.csv',
+            mime='text/csv'
             )
-            
 
-
-        with col2:
+        with tab2:
             st.header("Locomotor activity by day")
             st.write(locomotor_activity_by_day)
 
-            # Make a graph of locomotor_activity_by_day
-            fig, ax = plt.subplots()
-            # Plot individual points for mean activity
-            ax.scatter(locomotor_activity_by_day['Date'], locomotor_activity_by_day['mean'], color='black', marker='o', s=50, label='Mean Activity')
-            # Plot error bars for SEM
-            for i, row in locomotor_activity_by_day.iterrows():
-                ax.errorbar(row['Date'], row['mean'], yerr=row['sem'], fmt='none', ecolor='grey', elinewidth=2, capsize=5, alpha=0.5)
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Mean Activity')
-            ax.set_title('Mean Activity by Day')
-            st.pyplot(fig)
+            #Split the column into three smaller columns
+            col2_1, col2_2 = st.columns([2, 1])  # Adjust the width ratios as needed
 
-            #Make the download button
+            with col2_1:  # Place the graph in the middle column
+                # Make a graph of locomotor_activity_by_day
+                fig, ax = plt.subplots()
+                # Plot individual points for mean activity
+                ax.scatter(locomotor_activity_by_day['Date'], locomotor_activity_by_day['mean'], color='black', marker='o', s=50, label='Mean Activity')
+                # Plot error bars for SEM
+                for i, row in locomotor_activity_by_day.iterrows():
+                    ax.errorbar(row['Date'], row['mean'], yerr=row['sem'], fmt='none', ecolor='grey', elinewidth=2, capsize=5, alpha=0.5)
+                ax.set_xlabel('Date')
+                ax.set_ylabel('Mean Activity')
+                ax.set_title('Mean Activity by Day')
+                st.pyplot(fig)
+
+            # Make the download button
             # Convert the dataframe to a CSV
             csv = locomotor_activity_by_day.to_csv(index=False)
 
             # Create a download button for the CSV
             st.download_button(
-                label="Download Locomotor Activity by Day as CSV",
-                data=csv,
-                file_name='Locomotor_Activity_by_Day.csv',
-                mime='text/csv'
+            label="Download Locomotor Activity by Day as CSV",
+            data=csv,
+            file_name='Locomotor_Activity_by_Day.csv',
+            mime='text/csv'
             )
 
-
-
-        with col3:
+        with tab3:
             st.header("Daytime vs Nighttime activity in LD")
             st.write(df_by_LD_DD)
 
-            # Sort the data to ensure LD comes first and DD comes second
-            df_by_LD_DD = df_by_LD_DD.sort_values(by='LD_DD', key=lambda x: x.map({'LD': 0, 'DD': 1}))
+            #split the column into two smaller columns
+            col3_1, col3_2 = st.columns([2, 1])
 
-            # Make the graph for df_by_LD_DD
-            fig, ax = plt.subplots()
-            colors = {'LD': 'yellow', 'DD': 'blue'}
-            edge_colors = 'black'  # Black borders around the bars
-            ax.bar(df_by_LD_DD['LD_DD'], df_by_LD_DD['mean'], yerr=df_by_LD_DD['sem'], capsize=5, 
-                   color=[colors[cycle] for cycle in df_by_LD_DD['LD_DD']], edgecolor=edge_colors)
-            ax.set_xlabel('Light Cycle')
-            ax.set_ylabel('Mean Activity')
-            ax.set_title('Mean Activity by Light Cycle')
-            ax.set_yticks([2500, 5000, 7500])
-            ax.legend(handles=[plt.Line2D([0], [0], color='yellow', lw=4, label='Day (LD)'),
-                               plt.Line2D([0], [0], color='blue', lw=4, label='Night (DD)')], loc='upper right')
-            st.pyplot(fig)
+            with col3_1:
+                # Sort the data to ensure LD comes first and DD comes second
+                df_by_LD_DD = df_by_LD_DD.sort_values(by='Light_status', key=lambda x: x.map({'LD': 0, 'DD': 1}))
 
-            #Make the download button
+                # Make the graph for df_by_LD_DD
+                fig, ax = plt.subplots()
+                colors = {'LD': 'yellow', 'DD': 'blue'}
+                edge_colors = 'black'  # Black borders around the bars
+                ax.bar(df_by_LD_DD['Light_status'], df_by_LD_DD['mean'], yerr=df_by_LD_DD['sem'], capsize=5, 
+                    color=[colors[cycle] for cycle in df_by_LD_DD['Light_status']], edgecolor=edge_colors)
+                ax.set_xlabel('Light Cycle')
+                ax.set_ylabel('Mean Activity')
+                ax.set_title('Mean Activity by Light Cycle')
+                ax.set_yticks([2500, 5000, 7500])
+                ax.legend(handles=[plt.Line2D([0], [0], color='yellow', lw=4, label='Day (LD)'),
+                                plt.Line2D([0], [0], color='blue', lw=4, label='Night (DD)')], loc='upper right')
+                st.pyplot(fig)
+
+            # Make the download button
             # Convert the dataframe to a CSV
             csv = df_by_LD_DD.to_csv(index=False)
 
             # Create a download button for the CSV
             st.download_button(
-                label="Download Daytime vs Nighttime Activity in LD as CSV",
-                data=csv,
-                file_name='Daytime_vs_Nighttime_Activity_in_LD.csv',
-                mime='text/csv'
+            label="Download Daytime vs Nighttime Activity in LD as CSV",
+            data=csv,
+            file_name='Daytime_vs_Nighttime_Activity_in_LD.csv',
+            mime='text/csv'
             )
 
 
