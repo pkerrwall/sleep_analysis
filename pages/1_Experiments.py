@@ -8,6 +8,9 @@ import pickle
 import plotly.express as px
 from datetime import datetime
 from io import StringIO
+import numpy as np
+import zipfile
+import io
 
 # set wide layout mode
 st.set_page_config(layout="wide")
@@ -78,8 +81,15 @@ def save_analysis():
         'fig_by_day_activity': st.session_state.get('fig_by_day'),
         'fig_by_LD_DD_activity': st.session_state.get('fig_by_LD_DD'),
         'fig_sleep_grouped_night': st.session_state.get('fig_sleep_grouped_night'),
+        'daily_sleep_profile': st.session_state.get('fig_daily_sleep_profile'),
+        'average_sleep_profile': st.session_state.get('fig_avg_sleep'),
+        'total_sleep_in_LD': st.session_state.get('fig_total_sleep_in_LD'),
+        'daytime_sleep_in_LD': st.session_state.get('fig_daytime_sleep_in_LD'),
+        'nighttime_sleep_in_LD': st.session_state.get('fig_nighttime_sleep_in_LD'),
         'fig_sleep_bout_by_day': st.session_state.get('fig_sleep_bout_by_day'),
         'fig_sleep_bout_by_channel': st.session_state.get('fig_sleep_bout_by_channel'),
+        'bout_length_mean_by_condition': st.session_state.get('fig_bout_length_mean_by_condition'),
+        'bout_sum_mean_by_condition': st.session_state.get('fig_bout_sum_mean_by_condition'),
     }
 
     with open(save_file_path, 'wb') as f:
@@ -727,7 +737,7 @@ if st.session_state.uploaded_files or selected_monitor != "None":
         st.session_state.fig_sleep_grouped_night = fig
 
         
-        tab1, tab2, tab3, tab4 = st.tabs(["Average Sleep", "Individual Sleep", "Sleep Bout", "Raw Data"])
+        tab0, tab1, tab2, tab3, tab4 = st.tabs(["Daily Sleep", "Average Sleep", "Individual Sleep", "Sleep Bout", "Raw Data"])
     
         sleep_analysis_df = st.session_state.sleep_analysis_df
         sleep_analysis_df['zt_time'] = sleep_analysis_df['Date_Time'].apply(zeitgeber_time)
@@ -744,6 +754,45 @@ if st.session_state.uploaded_files or selected_monitor != "None":
         sleep_calc_df = sleep_calc_df.reset_index()
         sleep_calc_df['mean'] = sleep_calc_df[available_channels].mean(axis=1)
         sleep_calc_df['sem'] = sleep_calc_df[available_channels].sem(axis=1)
+
+        print(sleep_calc_df.columns.tolist())
+
+        with tab0:
+            st.header('Daily Sleep Profiles')
+            # --- Concatenate all days into a single line profile (sequential index) ---
+            # We'll use sleep_calc_df, which has 'Date_Time' and 'mean' columns (mean sleep across available channels)
+
+            # Prepare data for plotting
+            daily_sleep_df = sleep_calc_df.copy()
+
+            n_points = 250  # Number of points to plot
+            total_points = len(daily_sleep_df)
+            if total_points > n_points:
+                indices = np.linspace(0, total_points - 1, n_points, dtype=int)
+                plot_df = sleep_calc_df.iloc[indices]
+            else:
+                plot_df = sleep_calc_df
+
+            plot_df = plot_df.sort_values('Date_Time').reset_index(drop=True)
+            # Create a sequential index for the x-axis
+            plot_df['Sequential_Index'] = range(len(plot_df))
+            # Keep time of day for hover
+            plot_df['Time'] = plot_df['Date_Time'].dt.time
+
+            fig = px.line(
+                plot_df,
+                x='Sequential_Index',
+                y='mean',
+                labels={'mean': 'Mean Sleep', 'Sequential_Index': 'Time (H)'},
+                title='Daily Sleep Profile'
+            )
+            fig.update_traces(
+                hovertemplate='Time: %{customdata[0]}<br>Mean Sleep: %{y:.2f}',
+                customdata=plot_df[['Time']]
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            st.session_state.fig_daily_sleep_profile = fig
 
         with tab1:
             st.header('Average Sleep Analysis')
@@ -837,13 +886,11 @@ if st.session_state.uploaded_files or selected_monitor != "None":
                 #Make a download button for table1
                 st.download_button('Download Specific Column', table1.to_csv(), file_name='average_sleep.csv', mime='text/csv')
 
-                #def scatter_plot (save, Label, table):
-                #figure = table
-        
                 # create plotly express scatter plot
                 fig = px.scatter(avg_sleep_list_df, x='ZT_time_in_hours', y='Sleep_30min', error_y='SEM_30min', title='Average Sleep', labels={'ZT_time_in_hours':'ZT time in hours', 'Sleep_30min':'Sleep per 30min'})
                 st.plotly_chart(fig)
-                
+                st.session_state.fig_avg_sleep = fig
+
         with tab2:
 
             st.header('Individual Sleep Analysis')
@@ -873,6 +920,18 @@ if st.session_state.uploaded_files or selected_monitor != "None":
 
                 st.write("Individual Day/Night Mean")
                 st.write(ind_day_night_mean)
+
+                fig = px.box(
+                    ind_day_night_mean,
+                    x='Condition',
+                    y='mean_sleep_per_ind',
+                    points=False,
+                    labels={'Condition': st.session_state.condition_name, "mean_sleep_per_ind": "Mean Sleep per Individual"},
+                    title="Total Sleep in LD"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                st.session_state.fig_total_sleep_in_LD = fig
+
             with col2:
                 st.write("Individual Sleep Profiles in LD")
                 
@@ -892,8 +951,33 @@ if st.session_state.uploaded_files or selected_monitor != "None":
                 df_new = pd.DataFrame()
                 df_new['Channel#'] = df['Channel#'].unique()
                 day_df = df[df['Light_status'] == 'Day'][['Channel#', 'mean_sleep_per_ind']].rename(columns={'mean_sleep_per_ind': 'day_mean_sleep_per_ind'})
+                day_df['Condition'] = condition_name
                 night_df = df[df['Light_status'] == 'Night'][['Channel#', 'mean_sleep_per_ind']].rename(columns={'mean_sleep_per_ind': 'night_mean_sleep_per_ind'})
+                night_df['Condition'] = condition_name
                 df_new = pd.merge(day_df, night_df, on='Channel#', how='outer').fillna(0)
+
+
+                fig_day = px.box(
+                    day_df,
+                    x='Condition',
+                    y='day_mean_sleep_per_ind',
+                    points=False,
+                    labels={"Channel#": st.session_state.condition_name, "day_mean_sleep_per_ind": "Day Mean Sleep per Individual"},
+                    title="Daytime Sleep in LD"
+                )
+                st.plotly_chart(fig_day, use_container_width=True)
+                st.session_state.fig_daytime_sleep_in_LD = fig_day
+
+                fig_night = px.box(
+                    night_df,
+                    x='Condition',
+                    y='night_mean_sleep_per_ind',
+                    points=False,
+                    labels={"Channel#": st.session_state.condition_name, "night_mean_sleep_per_ind": "Night Mean Sleep per Individual"},
+                    title="Nighttime Sleep in LD"
+                )
+                st.plotly_chart(fig_night, use_container_width=True)
+                st.session_state.fig_nighttime_sleep_in_LD = fig_night
 
                 #Add on the "Condition" column to the new dataframe, sort it by that column
                 df_new = pd.merge(df_new, df[['Channel#', 'Condition']].drop_duplicates(), on='Channel#', how='outer').fillna(0)
@@ -902,7 +986,7 @@ if st.session_state.uploaded_files or selected_monitor != "None":
                 #Make it so that the Channel# column is the index
                 df_new = df_new.set_index('Channel#')
 
-                #Multiply day/night mean_sleep_per_ind by 30 to get sleep/30 for both day/day
+                #Multiply day/night mean_sleep_per_ind by 30 to get sleep/30 for both day and night
                 #label these columns day_sleep_per_30, night_sleep_per_30
                 df_new['day_sleep_per_30'] = df_new['day_mean_sleep_per_ind'] * 30
                 df_new['night_sleep_per_30'] = df_new['night_mean_sleep_per_ind'] * 30
@@ -1105,8 +1189,22 @@ if st.session_state.uploaded_files or selected_monitor != "None":
             # create plotly express density plot
             fig = px.density_contour(grouped, x='Bout_Length_mean', y='Bout_sum', marginal_x='histogram', marginal_y='histogram')
             col1.plotly_chart(fig)
+
+            # Box plot for Bout_Length_mean by Condition (from grouped)
+            col1.subheader("Sleep Bout Length in LD")
+            if not grouped.empty:
+                fig_bout_length = px.box(
+                    grouped,
+                    x='Condition',
+                    y='Bout_Length_mean',
+                    points=False,
+                    labels={"Condition": "Condition", "Bout_Length_mean": "Bout Length Mean"},
+                    title="Bout Length Mean in LD"
+                )
+                col1.plotly_chart(fig_bout_length, use_container_width=True)
+
             col1.dataframe(grouped, hide_index=True)
-            st.session_state.fig_sleep_bout_by_day = fig
+            st.session_state.fig_bout_length_mean_by_condition = fig_bout_length
 
             # print the grouped2 dataframe
             col2.header('Grouped By Channel')
@@ -1118,6 +1216,20 @@ if st.session_state.uploaded_files or selected_monitor != "None":
             # create plotly express density plot
             fig = px.density_contour(grouped2, x='Bout_sum_mean', y='Bout_Length_mean_mean', marginal_x='histogram', marginal_y='histogram')
             col2.plotly_chart(fig)
+
+             # Box plot for Bout_sum_mean by Condition (from grouped2)
+            col2.subheader("Sleep Bout Sum in LD")
+            if not grouped2.empty:
+                fig_bout_sum = px.box(
+                    grouped2,
+                    x='Condition',
+                    y='Bout_sum_mean',
+                    points=False,
+                    labels={"Condition": "Condition", "Bout_sum_mean": "Bout Sum Mean"},
+                    title="Bout Sum Mean in LD"
+                )
+                col2.plotly_chart(fig_bout_sum, use_container_width=True)
+                st.session_state.fig_bout_sum_mean_by_condition = fig_bout_sum
 
             # print the dataframe without the index
             col2.dataframe(grouped2, hide_index=True)
@@ -1144,9 +1256,37 @@ if st.session_state.uploaded_files or selected_monitor != "None":
             condition_name = st.session_state.get('condition_name', 'wt')
             save_analysis()
 
+        st.markdown("### Download All Results")
+        # Collect all CSV tables you want to include
+        csv_tables = {
+            "daily_locomotor_activity.csv": st.session_state.get("daily_locomotor_activity", pd.DataFrame()),
+            "locomotor_activity_by_day.csv": st.session_state.get("locomotor_activity_by_day", pd.DataFrame()),
+            "df_by_LD_DD.csv": st.session_state.get("df_by_LD_DD", pd.DataFrame()),
+            'sleep_analysis_df': st.session_state.get('sleep_analysis_df', pd.DataFrame()),
+            "avg_sleep_list.csv": st.session_state.get("avg_sleep_list_df", pd.DataFrame()),
+            "ind_day_night_mean.csv": st.session_state.get("ind_day_night_mean", pd.DataFrame()),
+            "sleep_grouped.csv": st.session_state.get("grouped1", pd.DataFrame()),
+            "sleep_grouped2.csv": st.session_state.get("grouped2_1", pd.DataFrame()),
+        }
+
+        # Create a zip in memory
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+            for fname, df in csv_tables.items():
+                if isinstance(df, pd.DataFrame) and not df.empty:
+                    zip_file.writestr(fname, df.to_csv(index=False))
+        zip_buffer.seek(0)
+
+        st.download_button(
+            label="Download All CSV Tables (ZIP)",
+            data=zip_buffer,
+            file_name="all_experiment_tables.zip",
+            mime="application/zip"
+        )
+
+
 if 'analysis_ran' not in st.session_state:
     st.session_state.analysis_ran = False
 
 if st.session_state.get("analysis_ran"):
     Daily_locomotor_activity = st.session_state.daily_locomotor_activity
-   
