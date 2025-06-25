@@ -58,10 +58,14 @@ def save_analysis():
 
     data_to_save = {
         'metadata': {
+            "start_date": st.session_state.monitor_settings.get('ld_dd_settings', {}).get('start_date', 'Unknown'),
+            'end_date': st.session_state.monitor_settings.get('ld_dd_settings', {}).get('end_date', 'Unknown'),
             'condition_name': condition_name,
             'monitor_name': monitor_name,
             'saved_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'settings': st.session_state.monitor_settings
+            'settings': st.session_state.monitor_settings,
+            "ld_dd_analysis": st.session_state.monitor_settings.get('ld_dd_analysis', 'Unknown'),
+            "light_onset": st.session_state.monitor_settings.get('dam_settings', {}).get('light_onset_time', 'Unknown')
         },
         'daily_locomotor_activity': st.session_state.get('daily_locomotor_activity'),
         'locomotor_activity_by_day': st.session_state.get('locomotor_activity_by_day'),
@@ -99,26 +103,42 @@ SAVE_DIR = "saved_monitors"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
+DEFAULTS_FILE = "user_defaults.json"
+
 def get_default_monitor_settings():
-    return {
-        "conditions": [{
-            "name": "wt",
-            "fly_count": 32,
-            "monitor_order": ["Monitor 1"],
-            "plot_colors": ["#BEBEBE"]
-        }],
+    DEFAULTS_FILE = "user_defaults.json"
+    defaults = {
         "ld_dd_analysis": "LD",
+        "ld_dd_settings": {
+            "start_date": "2024-01-01",
+            "end_date": "2024-01-31",
+            "LD_DD_Analysis": "LD"
+        },
         "dam_settings": {
             "dam_frequency": 1,
             "dead_fly_threshold": 100,
             "light_onset_time": "06:00"
         },
-        "ld_dd_settings": {
-            "start_date": "01 Jan 24 00:00:00",
-            "end_date": "01 Jan 24 23:59:59",
-            "LD_DD_Analysis": "LD"
-        }
+        "start_offset_days": 0,
+        "end_offset_days": 0
     }
+
+    if os.path.exists(DEFAULTS_FILE):
+        with open(DEFAULTS_FILE, "r") as f:
+            try:
+                user_defaults = json.load(f)
+                # Map flat structure into nested
+                defaults["ld_dd_settings"]["start_date"] = user_defaults.get("start_date", defaults["ld_dd_settings"]["start_date"])
+                defaults["ld_dd_settings"]["end_date"] = user_defaults.get("end_date", defaults["ld_dd_settings"]["end_date"])
+                defaults["dam_settings"]["dam_frequency"] = user_defaults.get("frequency", defaults["dam_settings"]["dam_frequency"])
+                defaults["dam_settings"]["dead_fly_threshold"] = user_defaults.get("threshold", defaults["dam_settings"]["dead_fly_threshold"])
+                defaults["dam_settings"]["light_onset_time"] = user_defaults.get("light_onset", defaults["dam_settings"]["light_onset_time"])
+                defaults["start_offset_days"] = user_defaults.get("start_offset_days", 0)
+                defaults["end_offset_days"] = user_defaults.get("end_offset_days", 0)
+            except json.JSONDecodeError:
+                pass
+
+    return defaults
 
 # Initialize default settings if none exist
 if 'monitor_settings' not in st.session_state:
@@ -318,12 +338,16 @@ with col2:
             df_temp = pd.read_csv(monitor_path, sep='\t', header=None)
             
             if not df_temp.empty:
+                monitor_settings = get_default_monitor_settings()
+                offset_start = monitor_settings.get("start_offset_days", 0)
+                offset_end = monitor_settings.get("end_offset_days", 0)
+
                 df_temp.columns = ['Index','Date','Time','LD-DD','Status','Extras','Monitor_Number',
                                  'Tube_Number','Data_Type','Light_Sensor'] + [f'data_{i}' for i in range(1, 33)]
                 df_temp['DateTime'] = pd.to_datetime(df_temp['Date'] + ' ' + df_temp['Time'], 
                                                     format='%d %b %y %H:%M:%S', errors='coerce')
-                min_date = df_temp['DateTime'].min().date()
-                max_date = df_temp['DateTime'].max().date()
+                min_date = df_temp['DateTime'].min().date() + timedelta(days=offset_start)
+                max_date = df_temp['DateTime'].max().date() + timedelta(days=offset_end)
         except Exception as e:
             st.error(f"Error reading file: {str(e)}")
 
@@ -343,7 +367,7 @@ with col2:
         ld_start_date = ld_start_date.strftime('%d %b %y')
         ld_end_date = ld_end_date.strftime('%d %b %y')
 
-        start_date = ld_start_date + ' 00:00:00'
+        start_date = ld_start_date + ' 00:00:00' 
         end_date = ld_end_date + ' 23:59:59'
         
     elif LD_DD_Analysis == "DD":
@@ -390,31 +414,45 @@ with col2:
     }
 
 # --- Third Column: DAM System Settings ---
+from datetime import time  # make sure this is imported
+
 with col3:
     st.subheader("DAM System Settings")
 
+    # Load nested DAM defaults correctly
+    monitor_settings = get_default_monitor_settings()
+    dam_defaults = monitor_settings.get('dam_settings', {})
+
+    dam_frequency = dam_defaults.get('dam_frequency', 1)
+    dead_fly_threshold = dam_defaults.get('dead_fly_threshold', 200)
+    light_onset_time = dam_defaults.get('light_onset_time', '06:00')
+
+    # Convert light_onset_time to time object if it's a string
+    if isinstance(light_onset_time, str):
+        light_onset_time = time.fromisoformat(light_onset_time)
+
     # DAM system data acquisition frequency
     dam_frequency = st.number_input("Enter the frequency in minutes", 
-                                  min_value=1, max_value=60, 
-                                  value=st.session_state.monitor_settings.get('dam_frequency', 1),
-                                  key='dam_frequency')
+                                    min_value=1, max_value=60, 
+                                    value=dam_frequency,
+                                    key='dam_frequency')
 
     # Threshold for identifying dead flies
     dead_fly_threshold = st.number_input("Threshold of Counts per Day", 
-                                        min_value=0, 
-                                        value=st.session_state.monitor_settings.get('dead_fly_threshold', 100),
-                                        key='dead_fly_threshold')
+                                         min_value=0, 
+                                         value=dead_fly_threshold,
+                                         key='dead_fly_threshold')
 
     # Light onset time
     light_onset_time = st.time_input("Enter the light onset time", 
-                                   value=st.session_state.monitor_settings.get('light_onset_time', time(6, 0)),
-                                   key='light_onset_time')
+                                     value=light_onset_time,
+                                     key='light_onset_time')
 
-    # Save DAM settings to session state
+    # Save updated DAM settings to session state
     st.session_state.monitor_settings['dam_settings'] = {
         'dam_frequency': dam_frequency,
         'dead_fly_threshold': dead_fly_threshold,
-        'light_onset_time': light_onset_time.strftime('%H:%M') if isinstance(light_onset_time, time) else light_onset_time
+        'light_onset_time': light_onset_time.strftime('%H:%M')
     }
 
 st.write("# Sleep Analysis")

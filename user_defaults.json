@@ -1,0 +1,9 @@
+{
+  "start_offset_days": 2,
+  "end_offset_days": -1,
+  "start_date": "2024-01-01",
+  "end_date": "2024-01-31",
+  "frequency": 3,
+  "threshold": 110,
+  "light_onset": "09:30"
+}
