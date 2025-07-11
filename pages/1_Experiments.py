@@ -556,189 +556,214 @@ with tabA:
             all_daily_locomotor_activity = []
             all_locomotor_activity_by_day = []
             all_df_by_LD_DD = []
-            
-            for cond in st.session_state.monitor_settings['conditions']:
-                condition_name = cond['name']
-            # Get filename from session state (you already store monitor_name)
-            monitor_filename = f"{monitor_name}.txt"  # Or use uploaded_file.name from metadata
-            monitor_filepath = os.path.join("uploaded_monitors", monitor_filename)
+            all_sleep_analysis_df = []
 
-            # Load file from disk
-            df = pd.read_csv(monitor_filepath, sep='\t', header=None)
-            new_df = df.copy()
-
-            # Give the columns names
-            df.columns = ['Index','Date','Time','LD-DD','Status','Extras','Monitor_Number','Tube_Number','Data_Type','Light_Sensor','data_1','data_2','data_3','data_4','data_5','data_6','data_7','data_8','data_9','data_10','data_11','data_12','data_13','data_14','data_15','data_16','data_17','data_18','data_19','data_20','data_21','data_22','data_23','data_24','data_25','data_26','data_27','data_28','data_29','data_30','data_31','data_32']
-
-            # Combine the date and time columns, it should look something like '23 Feb 24 11:03:00'
-            df['Date'] = df['Date'] + ' ' + df['Time']
-            # Get rid of the time column
-            df = df.drop(columns=['Time'])
-            # Rename the column to Date_Time
-            df = df.rename(columns={'Date':'Date_Time'})
-
-            # Convert df_copy Date_Time to a datetime object, the format is day Feb 24 time
-            df['Date_Time'] = pd.to_datetime(df['Date_Time'], format='%d %b %y %H:%M:%S')
-            
-            # Filter on date between start_date & end_date, make sure you include the entire day of end_date
-            df = df[(df['Date_Time'] >= pd.to_datetime(start_date)) & (df['Date_Time'] <= pd.to_datetime(end_date))]
-            
-            # Create a new column called "date" and just put the date in it
-            df['Date'] = df['Date_Time'].dt.date
-
-            # Create a new column called "time" and just put the time in it
-            df['Time'] = df['Date_Time'].dt.time
-            # Create a new column called "Condition" and put the condition in it
-            df['Condition'] = condition_name
-
-
-            # Create a new column called 'Light_Cycle' and just put LD_DD_Analysis in it
-            df['Light_Cycle'] = LD_DD_Analysis
-
-            # Rename the Data columns to ch columns, for example make Data_1 = ch1
-            df = df.rename(columns={'data_1':'ch1','data_2':'ch2','data_3':'ch3','data_4':'ch4','data_5':'ch5','data_6':'ch6','data_7':'ch7','data_8':'ch8','data_9':'ch9','data_10':'ch10','data_11':'ch11','data_12':'ch12','data_13':'ch13','data_14':'ch14','data_15':'ch15','data_16':'ch16','data_17':'ch17','data_18':'ch18','data_19':'ch19','data_20':'ch20','data_21':'ch21','data_22':'ch22','data_23':'ch23','data_24':'ch24','data_25':'ch25','data_26':'ch26','data_27':'ch27','data_28':'ch28','data_29':'ch29','data_30':'ch30','data_31':'ch31','data_32':'ch32'})
-            
-            df = df[['Date','Time','Condition','Light_Cycle','ch1','ch2','ch3','ch4','ch5','ch6','ch7','ch8','ch9','ch10','ch11','ch12','ch13','ch14','ch15','ch16','ch17','ch18','ch19','ch20','ch21','ch22','ch23','ch24','ch25','ch26','ch27','ch28','ch29','ch30','ch31','ch32']]
-
-            data_df_total = pd.DataFrame()
-
-            # Get all the days selected in the date range
-            days = df['Date'].unique()
-
-            for day in days:
-                # Filter the dataframe for the current day
-                data_df_day = df[df['Date'] == day]
-
-                # Drop the Date and Time columns
-                data_df_day = data_df_day.drop(columns=['Date', 'Time'])
-
-                # Add a row at the bottom of the dataframe that is the sum of all the columns
-                data_df_day.loc[day] = data_df_day.sum()
-
-                # Make Condition and Light_Cycle go back to normal
-                data_df_day['Condition'] = condition_name
-                data_df_day['Light_Cycle'] = LD_DD_Analysis
-
-                # Add the date back to the total row
-                data_df_day.loc[day, 'Date'] = day
-
-                # Move date to the front of the dataframe
-                data_df_day = data_df_day[['Date', 'Condition', 'Light_Cycle', 'ch1', 'ch2', 'ch3', 'ch4', 'ch5', 'ch6', 'ch7', 'ch8', 'ch9', 'ch10', 'ch11', 'ch12', 'ch13', 'ch14', 'ch15', 'ch16', 'ch17', 'ch18', 'ch19', 'ch20', 'ch21', 'ch22', 'ch23', 'ch24', 'ch25', 'ch26', 'ch27', 'ch28', 'ch29', 'ch30', 'ch31', 'ch32']]
-
-                # Add the total row to the data_df_total dataframe
-                data_df_total = pd.concat([data_df_total, data_df_day.tail(1)], ignore_index=True)
-
-            # Create a new row that is the mean of all the ch columns
-            numeric_cols = data_df_total.columns[3:]  # Exclude 'Condition', 'Light_Cycle', 'Name'
-            st.session_state.numeric_cols = numeric_cols
-            mean_row = pd.DataFrame(data_df_total[numeric_cols].mean()).T
-            mean_row.index = ['Mean']
-            mean_row['Date'] = 'Mean'
-            mean_row['Condition'] = condition_name
-            mean_row['Light_Cycle'] = LD_DD_Analysis
-            mean_row = mean_row[['Date', 'Condition', 'Light_Cycle'] + list(numeric_cols)]
-
-            # Append the mean row to the data_df_total dataframe
-            data_df_total = pd.concat([data_df_total, mean_row], ignore_index=False)
-
-            data_df_total.columns = [col.strip() for col in data_df_total.columns]
-            print("CLEANED FINAL COLUMNS:", data_df_total.columns.tolist())
-
-            n_of_all_flies = 32
-            n_of_alive_flies = 32
-            n_of_dead_flies = 0
-            # Create a list of available channels
             channel_columns = [f'ch{i}' for i in range(1, 33)]
-            available_channels = channel_columns.copy()
-            unavailble_channels = []
-            available_channels = [ch.strip() for ch in available_channels]
+            fly_counts = [cond['fly_count'] for cond in st.session_state.monitor_settings['conditions']]
+            channel_assignments = []
+            start = 0
+            for count in fly_counts:
+                end = start + count
+                channel_assignments.append(channel_columns[start:end])
+                start = end
 
-            # Loop through all the rows except mean, if any of the ch columns is less than counts_per_day_alive, add 1 to n_of_dead_flies
-            for index, row in data_df_total.iterrows():
-                if index != 'Mean':
-                    for ch in available_channels:
-                        if row[ch] < dead_fly_threshold:
-                            n_of_dead_flies += 1
-                            available_channels.remove(ch)
-                            unavailble_channels.append(ch)
-                            break
-            n_of_alive_flies = n_of_all_flies - n_of_dead_flies
-            st.session_state.unavailble_channels = unavailble_channels
-            st.session_state.available_channels = available_channels
+            for idx, cond in enumerate(st.session_state.monitor_settings['conditions']):
+                condition_name = cond['name']
+                fly_count = cond.get('fly_count', 32)
+                assigned_channels = channel_assignments[idx]
+                print(f"Processing condition: {condition_name}")
+                print(f"Number of flies: {fly_count}")
+                # Get filename from session state (you already store monitor_name)
+                monitor_filename = f"{monitor_name}.txt"  # Or use uploaded_file.name from metadata
+                monitor_filepath = os.path.join("uploaded_monitors", monitor_filename)
 
-        # Strip whitespace just in case
-            available_channels = [ch.strip() for ch in available_channels]
+                # Load file from disk
+                df = pd.read_csv(monitor_filepath, sep='\t', header=None)
+                new_df = df.copy()
 
-            # Create a row with the mean for each numeric column
-            mean_row = pd.DataFrame(data_df_total[numeric_cols].mean()).T
-            mean_row.index = ['Mean']
+                # Give the columns names
+                df.columns = ['Index','Date','Time','LD-DD','Status','Extras','Monitor_Number','Tube_Number','Data_Type','Light_Sensor','data_1','data_2','data_3','data_4','data_5','data_6','data_7','data_8','data_9','data_10','data_11','data_12','data_13','data_14','data_15','data_16','data_17','data_18','data_19','data_20','data_21','data_22','data_23','data_24','data_25','data_26','data_27','data_28','data_29','data_30','data_31','data_32']
 
-            # Append the row with a proper index
-            data_df_total = pd.concat([data_df_total, mean_row])
-            data_df_total.columns = [col.strip() for col in data_df_total.columns]
-            available_channels = [ch.strip() for ch in available_channels]
-            print("DF Columns:", data_df_total.columns.tolist())
-            print("Available channels:", available_channels)
-            # Find the Standard Deviation from the available_channels mean
-            std = data_df_total[available_channels].std().mean()
-            # Find the Standard Error of the Mean (SEM) from the available_channels mean
-            sem = std / (n_of_alive_flies ** 0.5)
+                # Combine the date and time columns, it should look something like '23 Feb 24 11:03:00'
+                df['Date'] = df['Date'] + ' ' + df['Time']
+                # Get rid of the time column
+                df = df.drop(columns=['Time'])
+                # Rename the column to Date_Time
+                df = df.rename(columns={'Date':'Date_Time'})
 
-            mean = data_df_total[available_channels].mean().mean()
-            # Create a new dataframe called Daily_locomotor_activity with the columns Condition, Light_Cycle, Mean, SD, SEM, N_of_alive_flies, N_of_dead_flies, N_of_all_flies
-            Daily_locomotor_activity = pd.DataFrame(data={'Condition': [condition_name], 'Light_Cycle': [LD_DD_Analysis], 'Mean': [mean], 'SD': [std], 'SEM': [sem], 'N_of_alive_flies': [n_of_alive_flies], 'N_of_dead_flies': [n_of_dead_flies], 'N_of_all_flies': [n_of_all_flies]})
-
-            # Individual Locomotor Activity by Day
-            individual_locomotor_activity_day = data_df_total.reset_index()
-            # Drop the mean row
-            individual_locomotor_activity_day = individual_locomotor_activity_day.drop([individual_locomotor_activity_day.index[-1]])
-            # Unpivot the dataframe with Date as the index and the columns as the data_1 - data_32
-            locomotor_day_unpivoted = individual_locomotor_activity_day.melt(id_vars=['Date'], value_vars=numeric_cols, var_name='Channel', value_name='Counts')
-            locomotor_day_unpivoted_alive = locomotor_day_unpivoted[locomotor_day_unpivoted['Channel'].isin(available_channels)]
-            locomotor_activity_by_day = locomotor_day_unpivoted_alive.groupby('Date')['Counts'].agg(['mean', 'sum', 'std', 'sem']).reset_index()
+                # Convert df_copy Date_Time to a datetime object, the format is day Feb 24 time
+                df['Date_Time'] = pd.to_datetime(df['Date_Time'], format='%d %b %y %H:%M:%S')
             
-
-            # Nighttime daytime activity ratio
-            new_df.columns = ['Index','Date','Time','LD-DD','Status','Monitor_Number','Extras','Tube_Number','Data_Type','Light_Sensor','data_1','data_2','data_3','data_4','data_5','data_6','data_7','data_8','data_9','data_10','data_11','data_12','data_13','data_14','data_15','data_16','data_17','data_18','data_19','data_20','data_21','data_22','data_23','data_24','data_25','data_26','data_27','data_28','data_29','data_30','data_31','data_32']
-
-            new_df['Date_Time'] = new_df['Date'] + ' ' + new_df['Time']
-            new_df['Date_Time'] = pd.to_datetime(new_df['Date_Time'], format='%d %b %y %H:%M:%S')
-
-            # Change Date to date columns with format yyyy-mm-dd
-            new_df['Date'] = pd.to_datetime(new_df['Date'], format='%d %b %y')
-            new_df['LD_DD'] = new_df['Date_Time'].dt.time
-            new_df['LD_DD'] = new_df['LD_DD'].apply(lambda x: 'LD' if x >= pd.to_datetime(LD_start).time() and x <= pd.to_datetime('18:00').time() else 'DD')
-            new_df = new_df[(new_df['Date_Time'] >= pd.to_datetime(start_date)) & (new_df['Date_Time'] <= pd.to_datetime(end_date))]
-            sleep_analysis_df = new_df.copy()
-            st.session_state.sleep_analysis_df = sleep_analysis_df
-            new_df = new_df.rename(columns={'data_1':'ch1','data_2':'ch2','data_3':'ch3','data_4':'ch4','data_5':'ch5','data_6':'ch6','data_7':'ch7','data_8':'ch8','data_9':'ch9','data_10':'ch10','data_11':'ch11','data_12':'ch12','data_13':'ch13','data_14':'ch14','data_15':'ch15','data_16':'ch16','data_17':'ch17','data_18':'ch18','data_19':'ch19','data_20':'ch20','data_21':'ch21','data_22':'ch22','data_23':'ch23','data_24':'ch24','data_25':'ch25','data_26':'ch26','data_27':'ch27','data_28':'ch28','data_29':'ch29','data_30':'ch30','data_31':'ch31','data_32':'ch32'})
-            df_ld_dd = new_df.groupby(['Date','LD_DD'])[numeric_cols].sum()
-            df_ld_dd.reset_index(inplace=True)
-
-            df_melt_ld_dd = df_ld_dd.melt(id_vars=['Date','LD_DD'], value_vars=numeric_cols, var_name='Channel', value_name='Counts')
-            df_melt_ld_dd_alive = df_melt_ld_dd[df_melt_ld_dd['Channel'].isin(available_channels)]
-            df_by_LD_DD = df_melt_ld_dd_alive.groupby('LD_DD')['Counts'].agg(['mean', 'sem']).reset_index()
-
-            # Add Condition column to the final dataframe
-            df_by_LD_DD['Condition'] = condition_name
-
-            #create a session state for condition name
-            st.session_state.condition_name = condition_name
-
-            df_by_LD_DD = df_by_LD_DD.rename(columns={'LD_DD': 'Light_status'})
-
-            # Reorder columns to show Condition, Light_status, Mean, and SEM
-            df_by_LD_DD = df_by_LD_DD[['Condition', 'Light_status', 'mean', 'sem']]
+                # Filter on date between start_date & end_date, make sure you include the entire day of end_date
+                df = df[(df['Date_Time'] >= pd.to_datetime(start_date)) & (df['Date_Time'] <= pd.to_datetime(end_date))]
             
+                # Create a new column called "date" and just put the date in it
+                df['Date'] = df['Date_Time'].dt.date
+
+                # Create a new column called "time" and just put the time in it
+                df['Time'] = df['Date_Time'].dt.time
+                # Create a new column called "Condition" and put the condition in it
+                df['Condition'] = condition_name
+
+                # Create a new column called 'Light_Cycle' and just put LD_DD_Analysis in it
+                df['Light_Cycle'] = LD_DD_Analysis
+
+                # Rename the Data columns to ch columns, for example make Data_1 = ch1
+                df = df.rename(columns={'data_1':'ch1','data_2':'ch2','data_3':'ch3','data_4':'ch4','data_5':'ch5','data_6':'ch6','data_7':'ch7','data_8':'ch8','data_9':'ch9','data_10':'ch10','data_11':'ch11','data_12':'ch12','data_13':'ch13','data_14':'ch14','data_15':'ch15','data_16':'ch16','data_17':'ch17','data_18':'ch18','data_19':'ch19','data_20':'ch20','data_21':'ch21','data_22':'ch22','data_23':'ch23','data_24':'ch24','data_25':'ch25','data_26':'ch26','data_27':'ch27','data_28':'ch28','data_29':'ch29','data_30':'ch30','data_31':'ch31','data_32':'ch32'})
+           
+                df_condition = df[['Date', 'Time', 'Condition', 'Light_Cycle'] + assigned_channels].copy()
+
+                data_df_total = pd.DataFrame()
+
+                # Get all the days selected in the date range
+                days = df_condition['Date'].unique()
+
+                for day in days:
+                    # Filter the dataframe for the current day
+                    data_df_day = df_condition[df_condition['Date'] == day]
+
+                    # Drop the Date and Time columns
+                    data_df_day = data_df_day.drop(columns=['Date', 'Time'])
+
+                    # Add a row at the bottom of the dataframe that is the sum of all the columns
+                    data_df_day.loc[day] = data_df_day.sum()
+
+                    # Make Condition and Light_Cycle go back to normal
+                    data_df_day['Condition'] = condition_name
+                    data_df_day['Light_Cycle'] = LD_DD_Analysis
+
+                    # Add the date back to the total row
+                    data_df_day.loc[day, 'Date'] = day
+
+                    # Move date to the front of the dataframe
+                    data_df_day = data_df_day[['Date', 'Condition', 'Light_Cycle'] + assigned_channels]
+
+                    # Add the total row to the data_df_total dataframe
+                    data_df_total = pd.concat([data_df_total, data_df_day.tail(1)], ignore_index=True)
+
+                # Create a new row that is the mean of all the ch columns
+                numeric_cols = assigned_channels  # Exclude 'Condition', 'Light_Cycle', 'Name'
+                st.session_state.numeric_cols = numeric_cols
+                mean_row = pd.DataFrame(data_df_total[numeric_cols].mean()).T
+                mean_row.index = ['Mean']
+                mean_row['Date'] = 'Mean'
+                mean_row['Condition'] = condition_name
+                mean_row['Light_Cycle'] = LD_DD_Analysis
+                mean_row = mean_row[['Date', 'Condition', 'Light_Cycle'] + list(numeric_cols)]
+
+                # Append the mean row to the data_df_total dataframe
+                data_df_total = pd.concat([data_df_total, mean_row], ignore_index=False)
+
+                data_df_total.columns = [col.strip() for col in data_df_total.columns]
+                print("CLEANED FINAL COLUMNS:", data_df_total.columns.tolist())
+
+                n_of_all_flies = fly_count
+                n_of_alive_flies = fly_count
+                n_of_dead_flies = 0
+                # Create a list of available channels
+                channel_columns = [f'ch{i}' for i in range(fly_count)]
+                available_channels = assigned_channels.copy()
+                unavailable_channels = []
+                available_channels = [ch.strip() for ch in available_channels]
+
+                # Loop through all the rows except mean, if any of the ch columns is less than counts_per_day_alive, add 1 to n_of_dead_flies
+                for index, row in data_df_total.iterrows():
+                    if index != 'Mean':
+                        for ch in available_channels:
+                            if row[ch] < dead_fly_threshold:
+                                n_of_dead_flies += 1
+                                available_channels.remove(ch)
+                                unavailable_channels.append(ch)
+                                break
+                n_of_alive_flies = n_of_all_flies - n_of_dead_flies
+                st.session_state.unavailable_channels = unavailable_channels
+                st.session_state.available_channels = available_channels
+
+                # Strip whitespace just in case
+                available_channels = [ch.strip() for ch in available_channels]
+
+                # Create a row with the mean for each numeric column
+                mean_row = pd.DataFrame(data_df_total[numeric_cols].mean()).T
+                mean_row.index = ['Mean']
+
+                # Append the row with a proper index
+                data_df_total = pd.concat([data_df_total, mean_row])
+                data_df_total.columns = [col.strip() for col in data_df_total.columns]
+                available_channels = [ch.strip() for ch in available_channels]
+                print("DF Columns:", data_df_total.columns.tolist())
+                print("Available channels:", available_channels)
+                # Find the Standard Deviation from the available_channels mean
+                std = data_df_total[available_channels].std().mean()
+                # Find the Standard Error of the Mean (SEM) from the available_channels mean
+                sem = std / (n_of_alive_flies ** 0.5)
+
+                mean = data_df_total[available_channels].mean().mean()
+                # Create a new dataframe called Daily_locomotor_activity with the columns Condition, Light_Cycle, Mean, SD, SEM, N_of_alive_flies, N_of_dead_flies, N_of_all_flies
+                Daily_locomotor_activity = pd.DataFrame(data={'Condition': [condition_name], 'Light_Cycle': [LD_DD_Analysis], 'Mean': [mean], 'SD': [std], 'SEM': [sem], 'N_of_alive_flies': [n_of_alive_flies], 'N_of_dead_flies': [n_of_dead_flies], 'N_of_all_flies': [n_of_all_flies]})
+
+                # Individual Locomotor Activity by Day
+                individual_locomotor_activity_day = data_df_total.reset_index()
+                # Drop the mean row
+                individual_locomotor_activity_day = individual_locomotor_activity_day.drop([individual_locomotor_activity_day.index[-1]])
+                # Unpivot the dataframe with Date as the index and the columns as the data_1 - data_32
+                locomotor_day_unpivoted = individual_locomotor_activity_day.melt(id_vars=['Date'], value_vars=assigned_channels, var_name='Channel', value_name='Counts')
+                locomotor_day_unpivoted_alive = locomotor_day_unpivoted[locomotor_day_unpivoted['Channel'].isin(available_channels)]
+                locomotor_activity_by_day = locomotor_day_unpivoted_alive.groupby('Date')['Counts'].agg(['mean', 'sum', 'std', 'sem']).reset_index()
+                locomotor_activity_by_day['Condition'] = condition_name
+                locomotor_activity_by_day = locomotor_activity_by_day[locomotor_activity_by_day['Date'] != 'Mean']
+                locomotor_activity_by_day['Date'] = pd.to_datetime(locomotor_activity_by_day['Date'])
+
+                # Nighttime daytime activity ratio
+                new_df.columns = ['Index','Date','Time','LD-DD','Status','Monitor_Number','Extras','Tube_Number','Data_Type','Light_Sensor','data_1','data_2','data_3','data_4','data_5','data_6','data_7','data_8','data_9','data_10','data_11','data_12','data_13','data_14','data_15','data_16','data_17','data_18','data_19','data_20','data_21','data_22','data_23','data_24','data_25','data_26','data_27','data_28','data_29','data_30','data_31','data_32']
+
+                new_df['Date_Time'] = new_df['Date'] + ' ' + new_df['Time']
+                new_df['Date_Time'] = pd.to_datetime(new_df['Date_Time'], format='%d %b %y %H:%M:%S')
+
+                # Change Date to date columns with format yyyy-mm-dd
+                new_df['Date'] = pd.to_datetime(new_df['Date'], format='%d %b %y')
+                new_df['LD_DD'] = new_df['Date_Time'].dt.time
+                new_df['LD_DD'] = new_df['LD_DD'].apply(lambda x: 'LD' if x >= pd.to_datetime(LD_start).time() and x <= pd.to_datetime('18:00').time() else 'DD')
+                new_df = new_df[(new_df['Date_Time'] >= pd.to_datetime(start_date)) & (new_df['Date_Time'] <= pd.to_datetime(end_date))]
+                sleep_analysis_df = new_df.copy()
+                sleep_analysis_df['Condition'] = condition_name
+                all_sleep_analysis_df.append(sleep_analysis_df)
+                new_df = new_df.rename(columns={'data_1':'ch1','data_2':'ch2','data_3':'ch3','data_4':'ch4','data_5':'ch5','data_6':'ch6','data_7':'ch7','data_8':'ch8','data_9':'ch9','data_10':'ch10','data_11':'ch11','data_12':'ch12','data_13':'ch13','data_14':'ch14','data_15':'ch15','data_16':'ch16','data_17':'ch17','data_18':'ch18','data_19':'ch19','data_20':'ch20','data_21':'ch21','data_22':'ch22','data_23':'ch23','data_24':'ch24','data_25':'ch25','data_26':'ch26','data_27':'ch27','data_28':'ch28','data_29':'ch29','data_30':'ch30','data_31':'ch31','data_32':'ch32'})
+                df_ld_dd = new_df.groupby(['Date','LD_DD'])[numeric_cols].sum()
+                df_ld_dd.reset_index(inplace=True)
+
+                df_melt_ld_dd = df_ld_dd.melt(id_vars=['Date','LD_DD'], value_vars=numeric_cols, var_name='Channel', value_name='Counts')
+                df_melt_ld_dd_alive = df_melt_ld_dd[df_melt_ld_dd['Channel'].isin(available_channels)]
+                df_by_LD_DD = df_melt_ld_dd_alive.groupby('LD_DD')['Counts'].agg(['mean', 'sem']).reset_index()
+
+                # Add Condition column to the final dataframe
+                df_by_LD_DD['Condition'] = condition_name
+
+                #create a session state for condition name
+                st.session_state.condition_name = condition_name
+
+                df_by_LD_DD = df_by_LD_DD.rename(columns={'LD_DD': 'Light_status'})
+
+                # Reorder columns to show Condition, Light_status, Mean, and SEM
+                df_by_LD_DD = df_by_LD_DD[['Condition', 'Light_status', 'mean', 'sem']]
+
+                all_daily_locomotor_activity.append(Daily_locomotor_activity)
+                all_locomotor_activity_by_day.append(locomotor_activity_by_day)
+                all_df_by_LD_DD.append(df_by_LD_DD)
+
+            combined_daily_locomotor_activity = pd.concat(all_daily_locomotor_activity, ignore_index=True)
+            combined_locomotor_activity_by_day = pd.concat(all_locomotor_activity_by_day, ignore_index=True)
+            combined_df_by_LD_DD = pd.concat(all_df_by_LD_DD, ignore_index=True)
+            combined_sleep_analysis_df = pd.concat(all_sleep_analysis_df, ignore_index=True)
+            st.session_state.sleep_analysis_df = combined_sleep_analysis_df
+
             ####################################################################################
             # Create summary figure for daily locomotor activity
             fig_summary = px.bar(
-                Daily_locomotor_activity,
+                combined_daily_locomotor_activity,
                 x='Condition',
                 y='Mean',
-                error_y='SEM',
                 color='Condition',
-                color_discrete_sequence=['yellow'],
+                error_y='SEM',
                 labels={'Condition': 'Condition', 'Mean': 'Mean Activity'},
                 title='Mean Activity per Day'
             )
@@ -747,14 +772,13 @@ with tabA:
                 bargap=0.5
             )
 
-            locomotor_activity_by_day = locomotor_activity_by_day[locomotor_activity_by_day['Date'] != 'Mean']
-            locomotor_activity_by_day['Date'] = pd.to_datetime(locomotor_activity_by_day['Date'])
             
             # Create scatter plot for locomotor activity by day
             fig_by_day = px.scatter(
-                locomotor_activity_by_day,
+                combined_locomotor_activity_by_day,
                 x='Date',
                 y='mean',
+                color='Condition',
                 error_y='sem',
                 labels={'Date': 'Date', 'mean': 'Locomotor Activity'},
                 title='Locomotor Activity by Day' 
@@ -764,7 +788,7 @@ with tabA:
             color_map = {'LD': 'yellow', 'DD': 'blue'}  # Yellow for LD, Blue for DD
 
             fig_by_LD_DD = px.bar(
-                df_by_LD_DD,
+                combined_df_by_LD_DD,
                 x='Condition',
                 y='mean',
                 color='Light_status',
@@ -780,33 +804,54 @@ with tabA:
             )
 
             #######################################################################################################################
-            st.session_state.daily_locomotor_activity = Daily_locomotor_activity
+            st.session_state.daily_locomotor_activity = combined_daily_locomotor_activity
             st.session_state.fig_summary = fig_summary
-            st.session_state.locomotor_activity_by_day = locomotor_activity_by_day
+            st.session_state.locomotor_activity_by_day = combined_locomotor_activity_by_day
             st.session_state.fig_by_day = fig_by_day
-            st.session_state.df_by_LD_DD = df_by_LD_DD
+            st.session_state.df_by_LD_DD = combined_df_by_LD_DD
             st.session_state.fig_by_LD_DD = fig_by_LD_DD
 
             tab, tab0, tab1, tab2, tab3, tab4 = st.tabs(["Daily Locomotor Activity", "Daily Sleep", "Average Sleep", "Individual Sleep", "Sleep Bout", "Raw Data"])
 
             # Prepare sleep analysis data
-            sleep_analysis_df = st.session_state.sleep_analysis_df
-            sleep_analysis_df['zt_time'] = sleep_analysis_df['Date_Time'].apply(zeitgeber_time)
-            numeric_cols = st.session_state.numeric_cols
-            sleep_analysis_df.columns = ['Index', 'Date', 'Time', 'LDD-DD', 'Status', 'Monitor_Number', 'Extras', 'Tube_Number', 'Data_Type', 'Light_Sensor', 'ch1', 'ch2', 'ch3', 'ch4', 'ch5', 'ch6', 'ch7', 'ch8', 'ch9', 'ch10', 'ch11', 'ch12', 'ch13', 'ch14', 'ch15', 'ch16', 'ch17', 'ch18', 'ch19', 'ch20', 'ch21', 'ch22', 'ch23', 'ch24', 'ch25', 'ch26', 'ch27', 'ch28', 'ch29', 'ch30', 'ch31', 'ch32', 'Date_Time', 'LD_DD', 'zt_time']
-            df_sleep_trim = sleep_analysis_df[['Date_Time', 'zt_time'] + list(numeric_cols)]
-            unavailable_channels = st.session_state.unavailble_channels
-            available_channels = st.session_state.available_channels
-            df_sleep_trim_alive = df_sleep_trim.drop(unavailable_channels, axis=1)
-            df_sleep_trim_alive = df_sleep_trim_alive.set_index('Date_Time')
-            numeric_df_sleep_trim_alive = df_sleep_trim_alive.select_dtypes(include=['number'])
-            sleep_calc_df = numeric_df_sleep_trim_alive.rolling(5).sum().applymap(lambda x: 1 if x == 0 else 0)
-            sleep_calc_df['zt_time'] = df_sleep_trim_alive.index.to_series().apply(zeitgeber_time)
-            sleep_calc_df = sleep_calc_df.reset_index()
-            sleep_calc_df['mean'] = sleep_calc_df[available_channels].mean(axis=1)
-            sleep_calc_df['sem'] = sleep_calc_df[available_channels].sem(axis=1)
+            sleep_analysis_df = combined_sleep_analysis_df  # This should have all conditions
+            all_sleep_calc_df = []
 
-            print(sleep_calc_df.columns.tolist())
+            for condition_name in sleep_analysis_df['Condition'].unique():
+                # Filter for this condition
+                df_condition = sleep_analysis_df[sleep_analysis_df['Condition'] == condition_name].copy()
+                # Get the assigned channels for this condition
+                idx = [i for i, cond in enumerate(st.session_state.monitor_settings['conditions']) if cond['name'] == condition_name][0]
+                assigned_channels = channel_assignments[idx]
+                # Add zt_time
+                df_condition['zt_time'] = df_condition['Date_Time'].apply(zeitgeber_time)
+                # Only keep relevant columns
+                df_condition = df_condition.reset_index(drop=True)
+                # Rename the Data columns to ch columns, for example make Data_1 = ch1
+                df_condition = df_condition.rename(columns={'data_1':'ch1','data_2':'ch2','data_3':'ch3','data_4':'ch4','data_5':'ch5','data_6':'ch6','data_7':'ch7','data_8':'ch8','data_9':'ch9','data_10':'ch10','data_11':'ch11','data_12':'ch12','data_13':'ch13','data_14':'ch14','data_15':'ch15','data_16':'ch16','data_17':'ch17','data_18':'ch18','data_19':'ch19','data_20':'ch20','data_21':'ch21','data_22':'ch22','data_23':'ch23','data_24':'ch24','data_25':'ch25','data_26':'ch26','data_27':'ch27','data_28':'ch28','data_29':'ch29','data_30':'ch30','data_31':'ch31','data_32':'ch32'})
+
+                df_condition = df_condition[['Date_Time', 'zt_time'] + list(assigned_channels)]
+                # Remove unavailable channels for this condition
+                unavailable_channels = [ch for ch in assigned_channels if ch in st.session_state.unavailable_channels]
+                available_channels = [ch for ch in assigned_channels if ch not in st.session_state.unavailable_channels]
+                df_sleep_trim_alive = df_condition.drop(unavailable_channels, axis=1)
+                df_sleep_trim_alive = df_sleep_trim_alive.set_index('Date_Time')
+                numeric_df_sleep_trim_alive = df_sleep_trim_alive.select_dtypes(include=['number'])
+                sleep_calc_df = numeric_df_sleep_trim_alive.rolling(5).sum().applymap(lambda x: 1 if x == 0 else 0)
+                sleep_calc_df['zt_time'] = df_sleep_trim_alive.index.to_series().apply(zeitgeber_time)
+                sleep_calc_df = sleep_calc_df.reset_index()
+                sleep_calc_df['mean'] = sleep_calc_df[available_channels].mean(axis=1)
+                sleep_calc_df['sem'] = sleep_calc_df[available_channels].sem(axis=1)
+                sleep_calc_df['Condition'] = condition_name
+                all_sleep_calc_df.append(sleep_calc_df)
+
+            # Combine all conditions
+            combined_sleep_calc_df = pd.concat(all_sleep_calc_df, ignore_index=True)
+
+            ##########################################################################################
+
+            st.session_state.sleep_analysis_df = combined_sleep_analysis_df
+
             with tab:
                 st.header('Daily Locomotor Activity')
                 col1, col2, col3 = st.columns(3)
@@ -856,36 +901,7 @@ with tabA:
             ##########################################################################################
             with tab0:
                 st.header('Daily Sleep Profiles')
-                ##################################################################################################
-                # Prepare data for plotting
-                daily_sleep_df = sleep_calc_df.copy()
-
-                n_points = 250  # Number of points to plot
-                total_points = len(daily_sleep_df)
-                if total_points > n_points:
-                    indices = np.linspace(0, total_points - 1, n_points, dtype=int)
-                    plot_df = sleep_calc_df.iloc[indices]
-                else:
-                    plot_df = sleep_calc_df
-
-                plot_df = plot_df.sort_values('Date_Time').reset_index(drop=True)
-                # Create a sequential index for the x-axis
-                plot_df['Sequential_Index'] = range(len(plot_df))
-                # Keep time of day for hover
-                plot_df['Time'] = plot_df['Date_Time'].dt.time
-
-                fig = px.line(
-                    plot_df,
-                    x='Sequential_Index',
-                    y='mean',
-                    labels={'mean': 'Sleep', 'Sequential_Index': 'Time (H)'},
-                    title='Daily Sleep Profile'
-                )
-                fig.update_traces(
-                    hovertemplate='Time: %{customdata[0]}<br>Mean Sleep: %{y:.2f}',
-                    customdata=plot_df[['Time']]
-                )
-
+                daily_sleep_df = combined_sleep_calc_df.copy()
                 # Get start and end date from session state
                 ld_dd_settings = st.session_state.monitor_settings.get('ld_dd_settings', {})
                 start_date_str = ld_dd_settings.get('start_date')
@@ -895,43 +911,132 @@ with tabA:
                 start_dt = pd.to_datetime(start_date_str, errors='coerce')
                 end_dt = pd.to_datetime(end_date_str, errors='coerce')
 
-                # Calculate points per day based on sampling interval
-                if len(plot_df) > 1:
-                    intervals = plot_df['Date_Time'].diff().dt.total_seconds().dropna() / 60
-                    interval_minutes = intervals.mode()[0] if not intervals.mode().empty else intervals.mean()
-                    points_per_day = int(24 * 60 / interval_minutes)
-                else:
-                    points_per_day = 24  # fallback
+                n_points = 250  # Number of points to plot per condition
 
-                # Set x-axis ticks at 0, 6, 12, 18 hours for each day, and label with date and hour
-                tickvals = []
-                ticktext = []
-                n_days = int(np.ceil(len(plot_df) / points_per_day))
-                for day in range(n_days):
-                    for hour in [0, 6, 12, 18]:
-                        idx = int(day * points_per_day + hour * (points_per_day / 24))
-                        if idx < len(plot_df):
-                            tickvals.append(idx)
-                            # Calculate the actual datetime for this tick
-                            if pd.notnull(start_dt):
-                                tick_time = start_dt + pd.Timedelta(days=day, hours=hour)
-                                ticktext.append(tick_time.strftime('%b %d\n%H:%M'))
-                            else:
-                                ticktext.append(str(hour))
+                if plot_conditions == "Overlap":
+                    # Prepare data for overlap plot
+                    plot_df_list = []
+                    for condition in daily_sleep_df['Condition'].unique():
+                        cond_df = daily_sleep_df[daily_sleep_df['Condition'] == condition].copy()
+                        total_points = len(cond_df)
+                        if total_points > n_points:
+                            indices = np.linspace(0, total_points - 1, n_points, dtype=int)
+                            cond_df = cond_df.iloc[indices]
+                        cond_df = cond_df.sort_values('Date_Time').reset_index(drop=True)
+                        cond_df['Sequential_Index'] = range(len(cond_df))
+                        cond_df['Time'] = cond_df['Date_Time'].dt.time
+                        plot_df_list.append(cond_df)
+                    plot_df = pd.concat(plot_df_list, ignore_index=True)
 
-                fig.update_xaxes(
-                    tickvals=tickvals,
-                    ticktext=ticktext,
-                    title='Date & Hour'
-                )
+                    # Calculate points per day based on sampling interval
+                    if len(plot_df) > 1:
+                        intervals = plot_df['Date_Time'].diff().dt.total_seconds().dropna() / 60
+                        interval_minutes = intervals.mode()[0] if not intervals.mode().empty else intervals.mean()
+                        points_per_day = int(24 * 60 / interval_minutes)
+                    else:
+                        points_per_day = 24  # fallback
 
-                st.plotly_chart(fig, use_container_width=True)
-                st.session_state.fig_daily_sleep_profile = fig
+                    # Build tickvals and ticktext using start_dt
+                    tickvals = []
+                    ticktext = []
+                    if pd.notnull(start_dt):
+                        n_days = int(np.ceil(len(plot_df) / points_per_day))
+                        for day in range(n_days):
+                            for hour in [0, 6, 12, 18]:
+                                idx = int(day * points_per_day + hour * (points_per_day / 24))
+                                if idx < len(plot_df):
+                                    tickvals.append(idx)
+                                    tick_time = start_dt + pd.Timedelta(days=day, hours=hour)
+                                    ticktext.append(tick_time.strftime('%b %d\n%H:%M'))
+                    else:
+                        # fallback to using actual data
+                        date_times = plot_df['Date_Time']
+                        for idx, dt in enumerate(date_times):
+                            if dt.hour in [0, 6, 12, 18] and dt.minute == 0:
+                                tickvals.append(idx)
+                                ticktext.append(dt.strftime('%b %d\n%H:%M'))
+
+                    fig = px.line(
+                        plot_df,
+                        x='Sequential_Index',
+                        y='mean',
+                        color='Condition',
+                        labels={'mean': 'Sleep', 'Sequential_Index': 'Time (H)', 'Condition': 'Condition'},
+                        title='Daily Sleep Profile'
+                    )
+                    fig.update_traces(
+                        hovertemplate='Time: %{customdata[0]}<br>Mean Sleep: %{y:.2f}',
+                        customdata=plot_df[['Time']]
+                    )
+                    fig.update_xaxes(
+                        tickvals=tickvals,
+                        ticktext=ticktext,
+                        title='Date & Hour'
+                    )
+
+                    st.plotly_chart(fig, use_container_width=True)
+                    st.session_state.fig_daily_sleep_profile = fig
+
+                else:  # Split mode
+                    for condition in daily_sleep_df['Condition'].unique():
+                        cond_df = daily_sleep_df[daily_sleep_df['Condition'] == condition].copy()
+                        total_points = len(cond_df)
+                        if total_points > n_points:
+                            indices = np.linspace(0, total_points - 1, n_points, dtype=int)
+                            cond_df = cond_df.iloc[indices]
+                        cond_df = cond_df.sort_values('Date_Time').reset_index(drop=True)
+                        cond_df['Sequential_Index'] = range(len(cond_df))
+                        cond_df['Time'] = cond_df['Date_Time'].dt.time
+
+                        # Calculate points per day based on sampling interval
+                        if len(cond_df) > 1:
+                            intervals = cond_df['Date_Time'].diff().dt.total_seconds().dropna() / 60
+                            interval_minutes = intervals.mode()[0] if not intervals.mode().empty else intervals.mean()
+                            points_per_day = int(24 * 60 / interval_minutes)
+                        else:
+                            points_per_day = 24  # fallback
+
+                        # Build tickvals and ticktext using start_dt
+                        tickvals = []
+                        ticktext = []
+                        if pd.notnull(start_dt):
+                            n_days = int(np.ceil(len(cond_df) / points_per_day))
+                            for day in range(n_days):
+                                for hour in [0, 6, 12, 18]:
+                                    idx = int(day * points_per_day + hour * (points_per_day / 24))
+                                    if idx < len(cond_df):
+                                        tickvals.append(idx)
+                                        tick_time = start_dt + pd.Timedelta(days=day, hours=hour)
+                                        ticktext.append(tick_time.strftime('%b %d\n%H:%M'))
+                        else:
+                            date_times = cond_df['Date_Time']
+                            for idx, dt in enumerate(date_times):
+                                if dt.hour in [0, 6, 12, 18] and dt.minute == 0:
+                                    tickvals.append(idx)
+                                    ticktext.append(dt.strftime('%b %d\n%H:%M'))
+
+                        fig = px.line(
+                            cond_df,
+                            x='Sequential_Index',
+                            y='mean',
+                            labels={'mean': 'Sleep', 'Sequential_Index': 'Time (H)'},
+                            title=f'Daily Sleep Profile: {condition}'
+                        )
+                        fig.update_traces(
+                            hovertemplate='Time: %{customdata[0]}<br>Mean Sleep: %{y:.2f}',
+                            customdata=cond_df[['Time']]
+                        )
+                        fig.update_xaxes(
+                            tickvals=tickvals,
+                            ticktext=ticktext,
+                            title='Date & Hour'
+                        )
+
+                        st.plotly_chart(fig, use_container_width=True)
 
                 st.write("**Sleep Profile Data**")
-                st.dataframe(sleep_calc_df, use_container_width=True)
-                # Add a download button for the sleep profile data
-                csv = sleep_calc_df.to_csv(index=False)
+                st.dataframe(combined_sleep_calc_df, use_container_width=True)
+                csv = combined_sleep_calc_df.to_csv(index=False)
                 st.download_button(
                     label="Download daily sleep profile data as CSV",
                     data=csv,
@@ -941,480 +1046,412 @@ with tabA:
             ##########################################################################################
             with tab1:
                 st.header('Average Sleep Analysis')
-                ########################################################################################################################################
-                # Average Sleep List
-                    
-                avg_sleep_df = sleep_calc_df.copy()
-                avg_sleep_df['time'] = avg_sleep_df['Date_Time'].dt.time
-                avg_sleep_df = avg_sleep_df[['time', 'mean']]
-                avg_sleep_df.sort_values('time', inplace=True)
-                avg_sleep_df.reset_index(drop=True, inplace=True)
-                bin = Bin_sleep_profile
-                avg_sleep_list = []
-                for i in range(0, len(avg_sleep_df), bin):
-                    start_time = pd.to_datetime(i, unit='m').time()
-                    end_time = pd.to_datetime(i+bin-1, unit='m').time()
-                    mean_values = avg_sleep_df[(avg_sleep_df['time'] >= start_time) & (avg_sleep_df['time'] <= end_time)]['mean'].tolist()
-                    bin_mean = sum(mean_values) / len(mean_values)
-                    bin_sem = pd.Series(mean_values).sem()
-                    avg_sleep_list.append([i, bin_mean, bin_sem])
-                avg_sleep_list_df = pd.DataFrame(avg_sleep_list, columns=['time', 'mean', 'sem'])
-                avg_sleep_list_df['zt_time'] = pd.to_datetime(avg_sleep_list_df['time'], unit='m').dt.time
 
-                #only keep the first instances of each zt_time
-                avg_sleep_list_df = avg_sleep_list_df.drop_duplicates(subset='zt_time', keep='first')
+                all_avg_sleep_list_df = []
 
-                #add a Condition column with the condition name
-                avg_sleep_list_df['Condition'] = condition_name
+                for condition_name in combined_sleep_calc_df['Condition'].unique():
+                    avg_sleep_df = combined_sleep_calc_df[combined_sleep_calc_df['Condition'] == condition_name].copy()
+                    avg_sleep_df['time'] = avg_sleep_df['Date_Time'].dt.time
+                    avg_sleep_df = avg_sleep_df[['time', 'mean']]
+                    avg_sleep_df.sort_values('time', inplace=True)
+                    avg_sleep_df.reset_index(drop=True, inplace=True)
+                    bin = Bin_sleep_profile
+                    avg_sleep_list = []
+                    for i in range(0, len(avg_sleep_df), bin):
+                        start_time = pd.to_datetime(i, unit='m').time()
+                        end_time = pd.to_datetime(i+bin-1, unit='m').time()
+                        mean_values = avg_sleep_df[(avg_sleep_df['time'] >= start_time) & (avg_sleep_df['time'] <= end_time)]['mean'].tolist()
+                        if len(mean_values) == 0:
+                            continue
+                        bin_mean = sum(mean_values) / len(mean_values)
+                        bin_sem = pd.Series(mean_values).sem()
+                        avg_sleep_list.append([i, bin_mean, bin_sem])
+                    avg_sleep_list_df = pd.DataFrame(avg_sleep_list, columns=['time', 'mean', 'sem'])
+                    avg_sleep_list_df['zt_time'] = pd.to_datetime(avg_sleep_list_df['time'], unit='m').dt.time
 
-                #Make the columns go in the order of time, zt_time, condition, mean, sem
-                avg_sleep_list_df = avg_sleep_list_df[['time', 'zt_time', 'Condition', 'mean', 'sem']]
-                st.session_state.avg_sleep_list_df = avg_sleep_list_df
-                avg_sleep_list_df.columns = ['Time', 'ZT_Time', 'Condition', 'Mean','SEM']
+                    # Only keep the first instances of each zt_time
+                    avg_sleep_list_df = avg_sleep_list_df.drop_duplicates(subset='zt_time', keep='first')
 
-                #change the names of the columns to Dec_time, Dec_ZT_time, Condition, mean_binned_sleep, sem_binned_sleep
-                avg_sleep_list_df.columns = ['Dec_time', 'Dec_ZT_time', 'Condition', 'mean_binned_sleep','sem_binned_sleep']
+                    # Add a Condition column with the condition name
+                    avg_sleep_list_df['Condition'] = condition_name
 
-                #convert zt_time to actual zeigterberg time. it should start at 0 when dec_time is at 360 and then add 30 to each interval after that
-                avg_sleep_list_df['Dec_ZT_time'] = avg_sleep_list_df['Dec_time'].apply(lambda x: x/60)
-                avg_sleep_list_df['Dec_ZT_time'] = avg_sleep_list_df['Dec_ZT_time'] - 6
-                avg_sleep_list_df['Dec_ZT_time'] = avg_sleep_list_df['Dec_ZT_time'].apply(lambda x: x if x >= 0 else x + 24)
-                #multiply Dec_zt_time by 60
-                avg_sleep_list_df['Dec_ZT_time'] = avg_sleep_list_df['Dec_ZT_time'] * 60
+                    # Make the columns go in the order of time, zt_time, condition, mean, sem
+                    avg_sleep_list_df = avg_sleep_list_df[['time', 'zt_time', 'Condition', 'mean', 'sem']]
+                    avg_sleep_list_df.columns = ['Dec_time', 'Dec_ZT_time', 'Condition', 'mean_binned_sleep','sem_binned_sleep']
 
+                    # Convert zt_time to actual Zeitgeber time
+                    avg_sleep_list_df['Dec_ZT_time'] = avg_sleep_list_df['Dec_time'].apply(lambda x: x/60)
+                    avg_sleep_list_df['Dec_ZT_time'] = avg_sleep_list_df['Dec_ZT_time'] - 6
+                    avg_sleep_list_df['Dec_ZT_time'] = avg_sleep_list_df['Dec_ZT_time'].apply(lambda x: x if x >= 0 else x + 24)
+                    avg_sleep_list_df['Dec_ZT_time'] = avg_sleep_list_df['Dec_ZT_time'] * 60
 
-                csv = avg_sleep_list_df.to_csv(index=False)                   
-                    
-                # Sort Dec_ZT_time column in chronological order
-                avg_sleep_list_df = avg_sleep_list_df.sort_values(by="Dec_ZT_time")
+                    # Sort Dec_ZT_time column in chronological order
+                    avg_sleep_list_df = avg_sleep_list_df.sort_values(by="Dec_ZT_time")
 
-                # Convert Dec_ZT_time to hours
-                hours = avg_sleep_list_df['Dec_ZT_time'] / 60
-                avg_sleep_list_df['ZT_time_in_hours'] = hours
+                    # Convert Dec_ZT_time to hours
+                    hours = avg_sleep_list_df['Dec_ZT_time'] / 60
+                    avg_sleep_list_df['ZT_time_in_hours'] = hours
 
-                # Calculate Sleep_30min and SEM_30min
-                avg_sleep_list_df['Sleep_30min'] = avg_sleep_list_df['mean_binned_sleep'] * 30
-                avg_sleep_list_df['SEM_30min'] = avg_sleep_list_df['sem_binned_sleep'] * 30
-            
-                # remove the 'Unamed: 0' column
-                #avg_sleep_list_df = avg_sleep_list_df.drop(columns=['Unnamed: 0'])
+                    # Calculate Sleep_30min and SEM_30min
+                    avg_sleep_list_df['Sleep_30min'] = avg_sleep_list_df['mean_binned_sleep'] * 30
+                    avg_sleep_list_df['SEM_30min'] = avg_sleep_list_df['sem_binned_sleep'] * 30
 
-                #Clone table
-                table1 = avg_sleep_list_df.copy()
+                    all_avg_sleep_list_df.append(avg_sleep_list_df)
 
-                #Get all unique conditions in table1
-                conditions = table1['Condition'].unique()
-                #Filter table1 to only include the selected condition
-                table1 = table1[table1['Condition'] == st.session_state.condition_name]
-                #Move the condition column to the front of the table
-                first_column = table1.pop('Condition')
-                table1.insert(0, 'Condition', first_column)
+                # Combine all conditions
+                combined_avg_sleep_list_df = pd.concat(all_avg_sleep_list_df, ignore_index=True)
+                st.session_state.avg_sleep_list_df = combined_avg_sleep_list_df
 
-                # create plotly express scatter plot
-                fig = px.scatter(avg_sleep_list_df, x='ZT_time_in_hours', y='Sleep_30min', error_y='SEM_30min', title='Average Sleep', labels={'ZT_time_in_hours':'ZT time in hours', 'Sleep_30min':'Sleep per 30min'})
-                st.plotly_chart(fig)
-                st.session_state.fig_avg_sleep = fig
+                if plot_conditions == "Overlap":
+                    fig = px.scatter(
+                        combined_avg_sleep_list_df,
+                        x='ZT_time_in_hours',
+                        y='Sleep_30min',
+                        color='Condition',
+                        error_y='SEM_30min',
+                        title='Average Sleep',
+                        labels={'ZT_time_in_hours':'ZT time in hours', 'Sleep_30min':'Sleep per 30min'}
+                    )
+                    st.plotly_chart(fig)
+                    st.session_state.fig_avg_sleep = fig
+                else:  # Split mode
+                    for condition in combined_avg_sleep_list_df['Condition'].unique():
+                        cond_df = combined_avg_sleep_list_df[combined_avg_sleep_list_df['Condition'] == condition]
+                        fig = px.scatter(
+                            cond_df,
+                            x='ZT_time_in_hours',
+                            y='Sleep_30min',
+                            error_y='SEM_30min',
+                            title=f'Average Sleep: {condition}',
+                            labels={'ZT_time_in_hours':'ZT time in hours', 'Sleep_30min':'Sleep per 30min'}
+                        )
+                        st.plotly_chart(fig)
 
                 st.write("**Average Sleep Data**")
-                st.write(avg_sleep_list_df)
+                st.dataframe(combined_avg_sleep_list_df, use_container_width=True)
 
-                #add a download button
+                # Add a download button
+                csv = combined_avg_sleep_list_df.to_csv(index=False)
                 st.download_button(
                     label="Download average sleep list as CSV",
                     data=csv,
                     file_name='avg_sleep_list.csv',
                     mime='text/csv'
-                    )
-
+                )
             with tab2:
                 st.header('Individual Sleep Analysis')
-                ######################################################################################################################################
                 col1, col2, col3 = st.columns(3)
 
-                # Individual Day/Night Mean
-                def day_night(dt):
-                    if dt.time() >= pd.to_datetime('06:00').time() and dt.time() <= pd.to_datetime('18:00').time():
-                        return 'Day'
-                    else:
-                        return 'Night'
-                ind_day_night = sleep_calc_df.copy()
-                ind_day_night['Day_Night'] = ind_day_night['Date_Time'].apply(day_night)
-                ind_day_night = ind_day_night[['Day_Night'] + available_channels]
-                ind_day_night_unpivoted = ind_day_night.melt(id_vars=['Day_Night'], value_vars=available_channels, var_name='Channel', value_name='Counts')
-                ind_day_night_mean = ind_day_night_unpivoted.groupby(['Day_Night', 'Channel'])['Counts'].mean().reset_index()
-                ind_day_night_mean.sort_values(['Channel', 'Day_Night'], inplace=True)
-                ind_day_night_mean.reset_index(drop=True, inplace=True)
+                all_ind_day_night_mean = []
 
-                #add the condition column
-                ind_day_night_mean['Condition'] = condition_name
+                for condition_name in combined_sleep_calc_df['Condition'].unique():
+                    cond_df = combined_sleep_calc_df[combined_sleep_calc_df['Condition'] == condition_name].copy()
+                    idx = [i for i, cond in enumerate(st.session_state.monitor_settings['conditions']) if cond['name'] == condition_name][0]
+                    assigned_channels = channel_assignments[idx]
+                    available_channels = [ch for ch in assigned_channels if ch not in st.session_state.unavailable_channels]
 
-                #Make the columns go bo the order of Channel, Condition, Light_status, mean_sleep_per_ind
-                ind_day_night_mean = ind_day_night_mean[['Channel', 'Condition', 'Day_Night', 'Counts']]
-                ind_day_night_mean.columns = ['Channel', 'Condition', 'Light_status', 'mean_sleep_per_ind']
-                st.session_state.ind_day_night_mean = ind_day_night_mean
+                    def day_night(dt):
+                        if dt.time() >= pd.to_datetime('06:00').time() and dt.time() <= pd.to_datetime('18:00').time():
+                            return 'Day'
+                        else:
+                            return 'Night'
 
-                # Create a box plot for total sleep in LD
-                fig = px.box(
-                    ind_day_night_mean,
-                    x='Condition',
-                    y='mean_sleep_per_ind',
-                    points=False,
-                    labels={'Condition': st.session_state.condition_name, "mean_sleep_per_ind": "Mean Sleep per Individual"},
-                    title="Total Sleep in LD"
-                )
-                col1.plotly_chart(fig, use_container_width=True)
-                st.session_state.fig_total_sleep_in_LD = fig
+                    ind_day_night = cond_df.copy()
+                    ind_day_night['Day_Night'] = ind_day_night['Date_Time'].apply(day_night)
+                    ind_day_night = ind_day_night[['Day_Night'] + available_channels]
+                    ind_day_night_unpivoted = ind_day_night.melt(id_vars=['Day_Night'], value_vars=available_channels, var_name='Channel', value_name='Counts')
+                    ind_day_night_mean = ind_day_night_unpivoted.groupby(['Day_Night', 'Channel'])['Counts'].mean().reset_index()
+                    ind_day_night_mean.sort_values(['Channel', 'Day_Night'], inplace=True)
+                    ind_day_night_mean.reset_index(drop=True, inplace=True)
+                    ind_day_night_mean['Condition'] = condition_name
+                    ind_day_night_mean = ind_day_night_mean[['Channel', 'Condition', 'Day_Night', 'Counts']]
+                    ind_day_night_mean.columns = ['Channel', 'Condition', 'Light_status', 'mean_sleep_per_ind']
+                    all_ind_day_night_mean.append(ind_day_night_mean)
 
-                df = ind_day_night_mean
+                # Combine all conditions
+                combined_ind_day_night_mean = pd.concat(all_ind_day_night_mean, ignore_index=True)
+                st.session_state.ind_day_night_mean = combined_ind_day_night_mean
 
-                #Get the number
-                df['Channel#'] = df['Channel'].str.extract(r'(\d+)$').astype(int)
+                # Overlap or Split plotting
+                if plot_conditions == "Overlap":
+                    # Box plot: Total Sleep in LD
+                    fig = px.box(
+                        combined_ind_day_night_mean,
+                        x='Condition',
+                        y='mean_sleep_per_ind',
+                        color='Condition',
+                        points=False,
+                        labels={'Condition': 'Condition', "mean_sleep_per_ind": "Mean Sleep per Individual"},
+                        title="Total Sleep in LD"
+                    )
+                    col1.plotly_chart(fig, use_container_width=True)
 
-                #Sort it by Day/Night column and then by Channel# column
-                df = df.sort_values(by=['Light_status', 'Channel#'])
+                    st.session_state.fig_total_sleep_in_LD = fig
+                    # Daytime and Nighttime Sleep
+                    day_df = combined_ind_day_night_mean[combined_ind_day_night_mean['Light_status'] == 'Day']
+                    night_df = combined_ind_day_night_mean[combined_ind_day_night_mean['Light_status'] == 'Night']
 
-                #Sort it by the column "Condition"
+                    fig_day = px.box(
+                        day_df,
+                        x='Condition',
+                        y='mean_sleep_per_ind',
+                        color='Condition',
+                        points=False,
+                        labels={"Condition": "Condition", "mean_sleep_per_ind": "Day Mean Sleep per Individual"},
+                        title="Daytime Sleep in LD"
+                    )
+                    col2.plotly_chart(fig_day, use_container_width=True)
+                    st.session_state.fig_daytime_sleep_in_LD = fig_day
 
-                #Make a new dataframe takes each Channel# and its corresponding Light_stats sleep status
-                #This means that the new dataframe should only have 3 columns, the channel#, the day_mean_sleep_per_ind, and the night_mean_sleep_per_ind
-                #The day or night mean_slep_per_ind is the one that corresponds to the Light_status column
-                df_new = pd.DataFrame()
-                df_new['Channel#'] = df['Channel#'].unique()
-                day_df = df[df['Light_status'] == 'Day'][['Channel#', 'mean_sleep_per_ind']].rename(columns={'mean_sleep_per_ind': 'day_mean_sleep_per_ind'})
-                day_df['Condition'] = condition_name
-                night_df = df[df['Light_status'] == 'Night'][['Channel#', 'mean_sleep_per_ind']].rename(columns={'mean_sleep_per_ind': 'night_mean_sleep_per_ind'})
-                night_df['Condition'] = condition_name
-                df_new = pd.merge(day_df, night_df, on='Channel#', how='outer').fillna(0)
-
-                # Create box plot for daytime sleep
-                fig_day = px.box(
-                    day_df,
-                    x='Condition',
-                    y='day_mean_sleep_per_ind',
-                    points=False,
-                    labels={"Channel#": st.session_state.condition_name, "day_mean_sleep_per_ind": "Day Mean Sleep per Individual"},
-                    title="Daytime Sleep in LD"
-                )
-                col2.plotly_chart(fig_day, use_container_width=True)
-                st.session_state.fig_daytime_sleep_in_LD = fig_day
-
-                # Create box plot for nighttime sleep
-                fig_night = px.box(
-                    night_df,
-                    x='Condition',
-                    y='night_mean_sleep_per_ind',
-                    points=False,
-                    labels={"Channel#": st.session_state.condition_name, "night_mean_sleep_per_ind": "Night Mean Sleep per Individual"},
-                    title="Nighttime Sleep in LD"
-                )
-                col3.plotly_chart(fig_night, use_container_width=True)
-                st.session_state.fig_nighttime_sleep_in_LD = fig_night
+                    fig_night = px.box(
+                        night_df,
+                        x='Condition',
+                        y='mean_sleep_per_ind',
+                        color='Condition',
+                        points=False,
+                        labels={"Condition": "Condition", "mean_sleep_per_ind": "Night Mean Sleep per Individual"},
+                        title="Nighttime Sleep in LD"
+                    )
+                    col3.plotly_chart(fig_night, use_container_width=True)
+                    st.session_state.fig_nighttime_sleep_in_LD = fig_night
+                else:  # Split mode
+                    for condition in combined_ind_day_night_mean['Condition'].unique():
+                        cond_df = combined_ind_day_night_mean[combined_ind_day_night_mean['Condition'] == condition]
+                        # Box plot: Total Sleep in LD
+                        fig = px.box(
+                            cond_df,
+                            x='Light_status',
+                            y='mean_sleep_per_ind',
+                            color='Light_status',
+                            points=False,
+                            labels={'Light_status': 'Day/Night', "mean_sleep_per_ind": "Mean Sleep per Individual"},
+                            title=f"Total Sleep in LD: {condition}"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
 
                 st.write("**Individual Day/Night Mean Data**")
-                st.write(ind_day_night_mean)
-                # Add a download button for the individual day/night mean data
-                csv = ind_day_night_mean.to_csv(index=False)
+                st.dataframe(combined_ind_day_night_mean, use_container_width=True)
+                csv = combined_ind_day_night_mean.to_csv(index=False)
                 st.download_button(
                     label="Download individual day/night mean data as CSV",
                     data=csv,
                     file_name='individual_day_night_mean.csv',
                     mime='text/csv'
                 )
-
-                #Add on the "Condition" column to the new dataframe, sort it by that column
-                df_new = pd.merge(df_new, df[['Channel#', 'Condition']].drop_duplicates(), on='Channel#', how='outer').fillna(0)
-
-
-                #Make it so that the Channel# column is the index
-                df_new = df_new.set_index('Channel#')
-
-                #Multiply day/night mean_sleep_per_ind by 30 to get sleep/30 for both day and night
-                #label these columns day_sleep_per_30, night_sleep_per_30
-                df_new['day_sleep_per_30'] = df_new['day_mean_sleep_per_ind'] * 30
-                df_new['night_sleep_per_30'] = df_new['night_mean_sleep_per_ind'] * 30
-
-                #Multiply mean_sleep_per_ind by 720 to get total sleep(min) for botbh day and night data
-                #label these columns day_total_sleep(min), night_total_sleep(min)
-                df_new['day_total_sleep(min)'] = df_new['day_mean_sleep_per_ind'] * 720
-                df_new['night_total_sleep(min)'] = df_new['night_mean_sleep_per_ind'] * 720
-
-                #add both day_total_sleep(min) and night_total_sleep(min) to get total_sleep(min)
-                #Divide total_sleep(min) by 60 to get total_sleep_per_day
-                df_new['total_sleep(min)'] = df_new['day_total_sleep(min)'] + df_new['night_total_sleep(min)']
-                df_new['total_sleep_per_day'] = df_new['total_sleep(min)'] / 60
-
-                #Create a new dataframe called data_df that has the following columns: Channel#, day_sleep_per_30, night_sleep_per_30, total_sleep_per_day
-                data_df = pd.DataFrame()
-                data_df['Channel#'] = df_new.index
-
-                #Add back the condition column
-                data_df['Condition'] = df_new['Condition'].values
-
-                data_df['day_sleep_per_30'] = df_new['day_sleep_per_30'].values
-                data_df['night_sleep_per_30'] = df_new['night_sleep_per_30'].values
-                data_df['total_sleep_per_day'] = df_new['total_sleep_per_day'].values
-
-                #again, make it so that the Channel# column is the index
-                data_df = data_df.set_index('Channel#')
-
-                #Sort the data_df by the conditions column
-                data_df = data_df.sort_values(by='Condition')
-
-                data_df1 = data_df.copy()
-
-                #Get each unique condition
-                conditions = data_df['Condition'].unique()
-
-                #Make a drop down menu for the user to select the condition
-                condition = st.selectbox('Select Condition', conditions)
-                #Filter the data_df by the selected condition
-                data_df = data_df[data_df['Condition'] == condition]
-
-                st.header("Additional Data")
-                #Show data_df dataframe on the streamlit with an option to download it
-                st.write(data_df)
-                st.download_button('Download Data', data_df.to_csv(), 'data.csv', 'text/csv')
-
-                #Add the conditions to the dataframe and print that one, make a button to download everything
-                st.write(data_df1)
-                st.download_button('Download Data with Conditions', data_df1.to_csv(), 'data_with_conditions.csv', 'text/csv')
-
-
-
             with tab3:
-                # Individual Sleep Bout
-                bout_data = []
-                for col in available_channels:
-                    changes = sleep_calc_df[col].diff().fillna(0).apply(lambda x: 1 if x != 0 else 0)
-                    change_indices = changes[changes == 1].index
-                    prev_value = sleep_calc_df.at[change_indices[0], col] if change_indices.size > 0 else None
-                    prev_time = sleep_calc_df.at[change_indices[0], 'Date_Time'] if change_indices.size > 0 else None
-                    for idx in change_indices:
-                        current_value = sleep_calc_df.at[idx, col]
-                        current_time = sleep_calc_df.at[idx, 'Date_Time']
-                        zt_time = zeitgeber_time(prev_time)
-                        if prev_value is not None and prev_value != current_value:
-                            bout_length = (current_time - prev_time).total_seconds() / 60
-                            bout_data.append({
-                                'Channel': col,
-                                'Condition': 'wt',
-                                'Light_Cycle': 'LD',
-                                'Date': 'NA',
-                                'Time': prev_time,
-                                'ZT_Time': zt_time,
-                                'Dec_ZT_Time': convert_zt_to_dec(zt_time),
-                                'Value': prev_value,
-                                'Sleep_Count': fill_sleep_counts(prev_value),
-                                'Bout': fill_bouts(bout_length),
-                                'Bout_Length': bout_length
-                            })
-                        prev_value = current_value
-                        prev_time = current_time
-    
-                ind_sleep_bout_df = pd.DataFrame(bout_data)
-                st.session_state.ind_sleep_bout_df = ind_sleep_bout_df
                 st.header("Sleep Bout Analysis")
-    
-                # split the Time column into a Date and Time column
-                ind_sleep_bout_df['Time'] = pd.to_datetime(ind_sleep_bout_df['Time'])
-                ind_sleep_bout_df['Date'] = ind_sleep_bout_df['Time'].dt.date
-                ind_sleep_bout_df['Time'] = ind_sleep_bout_df['Time'].dt.time
-                ind_sleep_bout_df['ZT_Time'] = ind_sleep_bout_df['ZT_Time'].dt.time
 
-                # create column called 'day_or_night' where Dec_ZT_time = 0 to 720 is day, DecZT_time 721 to 1080 is night
-                ind_sleep_bout_df['day_or_night'] = ind_sleep_bout_df['Dec_ZT_Time'].apply(lambda x: 'day' if x < 720 else 'night')
+                all_bout_data = []
+                all_grouped = []
+                all_grouped2 = []
 
-                day_or_night = ['day', 'night']
-                # Apply initial filters
-                # filter sleep_count = 0 (keep only sleep bouts)
-                ind_sleep_bout_df = ind_sleep_bout_df[ind_sleep_bout_df['Sleep_Count'] != 0]
-            
-                # filter rows where bout_length < 5 minutes
-                ind_sleep_bout_df = ind_sleep_bout_df[ind_sleep_bout_df['Bout_Length'] >= 5]
-            
-                # filter by selected day or night periods
-                ind_sleep_bout_df = ind_sleep_bout_df[ind_sleep_bout_df['day_or_night'].isin(day_or_night)]
+                # Calculate sleep bouts and grouped data for each condition
+                for condition_name in combined_sleep_calc_df['Condition'].unique():
+                    cond_df = combined_sleep_calc_df[combined_sleep_calc_df['Condition'] == condition_name].copy()
+                    idx = [i for i, cond in enumerate(st.session_state.monitor_settings['conditions']) if cond['name'] == condition_name][0]
+                    assigned_channels = channel_assignments[idx]
+                    available_channels = [ch for ch in assigned_channels if ch not in st.session_state.unavailable_channels]
 
-                # Check if dataframe is empty after filtering
-                if ind_sleep_bout_df.empty:
-                    st.warning(f"No sleep bout data available.")
-                else:
-                    # Get date range for filtering
-                    start_date = ind_sleep_bout_df['Date'].iloc[0]
-                    end_date = ind_sleep_bout_df['Date'].iloc[-1]
+                    # --- Sleep Bout Calculation ---
+                    bout_data = []
+                    for col in available_channels:
+                        changes = cond_df[col].diff().fillna(0).apply(lambda x: 1 if x != 0 else 0)
+                        change_indices = changes[changes == 1].index
+                        prev_value = cond_df.at[change_indices[0], col] if change_indices.size > 0 else None
+                        prev_time = cond_df.at[change_indices[0], 'Date_Time'] if change_indices.size > 0 else None
+                        for idx2 in change_indices:
+                            current_value = cond_df.at[idx2, col]
+                            current_time = cond_df.at[idx2, 'Date_Time']
+                            zt_time = zeitgeber_time(prev_time)
+                            if prev_value is not None and prev_value != current_value:
+                                bout_length = (current_time - prev_time).total_seconds() / 60
+                                bout_data.append({
+                                    'Channel': col,
+                                    'Condition': condition_name,
+                                    'Date': prev_time.date() if prev_time is not None else None,
+                                    'Time': prev_time,
+                                    'ZT_Time': zt_time,
+                                    'Dec_ZT_Time': convert_zt_to_dec(zt_time),
+                                    'Value': prev_value,
+                                    'Sleep_Count': fill_sleep_counts(prev_value),
+                                    'Bout': fill_bouts(bout_length),
+                                    'Bout_Length': bout_length
+                                })
+                            prev_value = current_value
+                            prev_time = current_time
 
-                    # filter by date range
-                    ind_sleep_bout_df = ind_sleep_bout_df[(ind_sleep_bout_df['Date'] >= start_date) & (ind_sleep_bout_df['Date'] <= end_date)]
-
-                    # Check again if dataframe is empty after date filtering
+                    ind_sleep_bout_df = pd.DataFrame(bout_data)
                     if ind_sleep_bout_df.empty:
-                        st.warning("No sleep bout data available for the selected date range and time period.")
-                    else:
-                        # THIRD: Create analysis and graphs based on the filtered dataframe
-                    
-                        # create column bout_lengths/sleep_counts
-                        ind_sleep_bout_df['bout_length_per_sleep_counts'] = ind_sleep_bout_df['Bout_Length'] / ind_sleep_bout_df['Sleep_Count']
+                        continue
 
-                        # create a column called 'channel_num' where Monitor9_ch1 is 1, Monitor9_ch2 is 2, etc.
-                        ind_sleep_bout_df['channel_num'] = ind_sleep_bout_df['Channel'].apply(lambda x: int(x.split('ch')[-1]))
+                    # --- Filtering and feature engineering ---
+                    ind_sleep_bout_df['Time'] = pd.to_datetime(ind_sleep_bout_df['Time'])
+                    ind_sleep_bout_df['Date'] = ind_sleep_bout_df['Time'].dt.date
+                    ind_sleep_bout_df['Time'] = ind_sleep_bout_df['Time'].dt.time
+                    ind_sleep_bout_df['ZT_Time'] = ind_sleep_bout_df['ZT_Time'].dt.time
+                    ind_sleep_bout_df['day_or_night'] = ind_sleep_bout_df['Dec_ZT_Time'].apply(lambda x: 'day' if x < 720 else 'night')
+                    ind_sleep_bout_df['bout_length_per_sleep_counts'] = ind_sleep_bout_df['Bout_Length'] / ind_sleep_bout_df['Sleep_Count']
+                    ind_sleep_bout_df['channel_num'] = ind_sleep_bout_df['Channel'].apply(lambda x: int(x.split('ch')[-1]))
 
-                        # group by time_of_day, channel, date and then sum and average bout and bout_length
-                        grouped = ind_sleep_bout_df.groupby(['day_or_night', 'Channel', 'channel_num', 'Condition', 'Date']).agg({'Bout': ['sum'], 'Bout_Length': ['sum', 'mean']}).reset_index()
+                    # --- Grouped by day ---
+                    grouped = ind_sleep_bout_df.groupby(
+                        ['day_or_night', 'Channel', 'channel_num', 'Condition', 'Date']
+                    ).agg({'Bout': ['sum'], 'Bout_Length': ['sum', 'mean']}).reset_index()
+                    grouped = grouped.sort_values(['day_or_night', 'channel_num', 'Date'])
+                    grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
+                    grouped.columns = grouped.columns.str.replace('_$', '', regex=True)
+                    grouped['Bout_Length_mean'] = grouped['Bout_Length_mean'].apply(lambda x: round(x, 2))
 
-                        # sort grouped by channel_num and date
-                        grouped = grouped.sort_values(['day_or_night','channel_num', 'Date'])
+                    # --- Grouped by channel ---
+                    grouped2 = grouped.groupby(
+                        ['day_or_night', 'Channel', 'channel_num', 'Condition']
+                    ).agg({'Bout_sum': ['mean'], 'Bout_Length_mean': ['mean']}).reset_index()
+                    grouped2 = grouped2.sort_values(['day_or_night', 'channel_num'])
+                    grouped2.columns = ['_'.join(col).strip() for col in grouped2.columns.values]
+                    grouped2.columns = grouped2.columns.str.replace('_$', '', regex=True)
+                    grouped2['Bout_sum_mean'] = grouped2['Bout_sum_mean'].apply(lambda x: round(x, 2))
+                    grouped2['Bout_Length_mean_mean'] = grouped2['Bout_Length_mean_mean'].apply(lambda x: round(x, 2))
 
-                        # format bout_length mean to 2 decimal places
-                        grouped['Bout_Length', 'mean'] = grouped['Bout_Length', 'mean'].apply(lambda x: round(x, 2))
+                    # Store for later combination
+                    all_bout_data.append(ind_sleep_bout_df)
+                    all_grouped.append(grouped)
+                    all_grouped2.append(grouped2)
 
-                        # transform the multi-index columns to single index
-                        grouped.columns = ['_'.join(col).strip() for col in grouped.columns.values]
+                # --- Combine all conditions ---
+                combined_bout_df = pd.concat(all_bout_data, ignore_index=True) if all_bout_data else pd.DataFrame()
+                combined_grouped = pd.concat(all_grouped, ignore_index=True) if all_grouped else pd.DataFrame()
+                combined_grouped2 = pd.concat(all_grouped2, ignore_index=True) if all_grouped2 else pd.DataFrame()
 
-                        # replace columns that end with '_' with ''
-                        grouped.columns = grouped.columns.str.replace('_$', '', regex=True)
+                st.session_state.ind_sleep_bout_df = combined_bout_df
+                st.session_state.grouped = combined_grouped
+                st.session_state.grouped2 = combined_grouped2
 
-                        # create a new grouped dataframe that is grouped by day_or_night, channel_num and averages bout sum and bout_length mean
-                        grouped2 = grouped.groupby(['day_or_night', 'Channel', 'channel_num', 'Condition']).agg({'Bout_sum': ['mean'], 'Bout_Length_mean': ['mean']}).reset_index()
+                combined_grouped = combined_grouped.sort_values(by='Condition')
+                combined_grouped2 = combined_grouped2.sort_values(by='Condition')
 
-                        # sort by channel_num
-                        grouped2 = grouped2.sort_values(['day_or_night', 'channel_num'])
+                col1, col2 = st.columns(2)
 
-                        # transform the multi-index columns to single index
-                        grouped2.columns = ['_'.join(col).strip() for col in grouped2.columns.values]
+                # Display the grouped dataframe
+                col1.subheader(f'Grouped By Day')
 
-                        # replace columns that end with '_' with ''
-                        grouped2.columns = grouped2.columns.str.replace('_$', '', regex=True)
+                # create plotly express density plot
+                fig = px.density_contour(combined_grouped, x='Bout_Length_mean', y='Bout_sum', marginal_x='histogram', marginal_y='histogram',
+                                    title=f'Sleep Bout Analysis by Day')
+                st.session_state.fig_sleep_bout_by_day = fig
+                col1.plotly_chart(fig) 
 
-                        # format bout_sum_mean and bout_length_mean_mean to 2 decimal places
-                        grouped2['Bout_sum_mean'] = grouped2['Bout_sum_mean'].apply(lambda x: round(x, 2))
-                        grouped2['Bout_Length_mean_mean'] = grouped2['Bout_Length_mean_mean'].apply(lambda x: round(x, 2))
-
-                        # Group the header by the column "Condition"
-                        grouped2 = grouped2.sort_values(by=['Condition'])
-
-                        # Update session state with processed data
-                        st.session_state.grouped = grouped
-                        st.session_state.grouped2 = grouped2
-                        st.session_state.ind_sleep_bout_df_filtered = ind_sleep_bout_df
-
-                        # create 2 streamlit columns
-                        col1, col2 = st.columns(2)
-                
-                        # Move the condition column to the second column in both grouped and grouped2
-                        grouped = grouped[['day_or_night', 'Condition', 'Channel', 'channel_num', 'Date', 'Bout_sum', 'Bout_Length_sum', 'Bout_Length_mean']]
-                        grouped2 = grouped2[['day_or_night', 'Condition', 'Channel', 'channel_num', 'Bout_sum_mean', 'Bout_Length_mean_mean']]
-                
-                        # make copies of grouped and grouped2
-                        grouped1 = grouped.copy()
-                        grouped2_1 = grouped2.copy()
-
-                        # Update session state with grouped copies
-                        st.session_state.grouped1 = grouped1
-                        st.session_state.grouped2_1 = grouped2_1
-
-                        # Sort each by the condition column
-                        grouped1 = grouped1.sort_values(by='Condition')
-                        grouped2_1 = grouped2_1.sort_values(by='Condition')
-                
-                        # Display the grouped dataframe
-                        col1.subheader(f'Grouped By Day')
-
-                        # create plotly express density plot
-                        fig = px.density_contour(grouped, x='Bout_Length_mean', y='Bout_sum', marginal_x='histogram', marginal_y='histogram',
-                                           title=f'Sleep Bout Analysis by Day')
-                        st.session_state.fig_sleep_bout_by_day = fig
-                        col1.plotly_chart(fig)                 
-
-                        # Display the grouped2 dataframe
-                        col2.subheader(f'Grouped By Channel')
+                # Display the grouped2 dataframe
+                col2.subheader(f'Grouped By Channel')
                         
-
-                        # create plotly express density plot
-                        fig = px.density_contour(grouped2, x='Bout_sum_mean', y='Bout_Length_mean_mean', marginal_x='histogram', marginal_y='histogram',
-                                           title=f'Sleep Bout Analysis by Channel')
-                        st.session_state.fig_sleep_bout_by_channel = fig
-                        col2.plotly_chart(fig)
-
-
-                        # Get unique conditions for dropdowns
-                        conditions = grouped1['Condition'].unique()
-                        conditions2 = grouped2_1['Condition'].unique()
+                # create plotly express density plot
+                fig = px.density_contour(combined_grouped2, x='Bout_sum_mean', y='Bout_Length_mean_mean', marginal_x='histogram', marginal_y='histogram',
+                                    title=f'Sleep Bout Analysis by Channel')
+                st.session_state.fig_sleep_bout_by_channel = fig
+                col2.plotly_chart(fig)
 
 
-                        # --- BOUT LENGTH ANALYSIS ---
-                        col1.subheader(f"Sleep/Activity Bout Length Analysis")
-                        col2.subheader("")
-                        # Use the filtered data instead of the original data
-                        bout_df = st.session_state.ind_sleep_bout_df.copy()
+                # --- BOUT LENGTH ANALYSIS ---
+                col1.subheader(f"Sleep/Activity Bout Length Analysis")
+                col2.subheader("")
+                # Use the filtered data instead of the original data
+                # Filter for Sleep_Count == 1 (sleep bouts)
+                bout_df_1 = combined_bout_df[combined_bout_df['Sleep_Count'] == 1]
+                print(f"bout_df_1: {bout_df_1}")
+                if not bout_df_1.empty:
+                    bout_stats_1 = bout_df_1.groupby('Condition').agg(
+                        Avg_Bout_Length=('Bout_Length', 'mean'),
+                        SEM_Bout_Length=('Bout_Length', lambda x: x.std(ddof=1) / np.sqrt(len(x)))
 
-                        # Filter for Sleep_Count == 1 (sleep bouts)
-                        bout_df_1 = bout_df[bout_df['Sleep_Count'] == 1]
-                        if not bout_df_1.empty:
-                            bout_stats_1 = bout_df_1.groupby('Condition').agg(
-                                Avg_Bout_Length=('Bout_Length', 'mean'),
-                                SEM_Bout_Length=('Bout_Length', lambda x: x.std(ddof=1) / np.sqrt(len(x)))
-                            ).reset_index()
-                            fig_avg_length_1 = px.bar(
-                                bout_stats_1,
-                                x='Condition',
-                                y='Avg_Bout_Length',
-                                color='Condition',
-                                error_y='SEM_Bout_Length',
-                                labels={"Condition": "Condition", "Avg_Bout_Length": "Average Bout Length [min]"},
-                                title="Sleep Bout Length in LD"
-                            )
-                            fig_avg_length_1.update_layout(bargap=0.75)
-                            col1.plotly_chart(fig_avg_length_1, use_container_width=True)
-                            st.session_state.fig_avg_bout_length_1 = fig_avg_length_1
-                        else:
-                            col1.info(f"No sleep bouts found.")
+                    ).reset_index()
+                    fig_avg_length_1 = px.bar(
+                        bout_stats_1,
+                        x='Condition',
+                        y='Avg_Bout_Length',
+                        color='Condition',
+                        error_y='SEM_Bout_Length',
+                        labels={"Condition": "Condition", "Avg_Bout_Length": "Average Bout Length [min]"},
+                        title="Sleep Bout Length in LD"
+                    )
+                    fig_avg_length_1.update_layout(bargap=0.75)
+                    col1.plotly_chart(fig_avg_length_1, use_container_width=True)
+                    st.session_state.fig_avg_bout_length_1 = fig_avg_length_1
+                else:
+                    col1.info(f"No sleep bouts found.")
+                
+                # Filter for Sleep_Count == 0 (activity bouts)
+                bout_df_0 = combined_bout_df[combined_bout_df['Sleep_Count'] == 0]
+                print(f"bout_df_0: {bout_df_0}")
+                if not bout_df_0.empty:
+                    bout_stats_0 = bout_df_0.groupby('Condition').agg(
+                        Avg_Bout_Length=('Bout_Length', 'mean'),
+                        SEM_Bout_Length=('Bout_Length', lambda x: x.std(ddof=1) / np.sqrt(len(x))) 
+                    ).reset_index()
+                    fig_avg_length_0 = px.bar(
+                        bout_stats_0,
+                        x='Condition',
+                        y='Avg_Bout_Length',
+                        color='Condition',
+                        error_y='SEM_Bout_Length',
+                        labels={"Condition": "Condition", "Avg_Bout_Length": "Average Bout Length [min]"},
+                        title="Activity Bout Length in LD"
+                    )
+                    fig_avg_length_0.update_layout(bargap=0.75)
+                    col2.plotly_chart(fig_avg_length_0, use_container_width=True)
+                    st.session_state.fig_avg_bout_length_0 = fig_avg_length_0
+                else:
+                    col2.info("No activity bouts found.")
 
-                        # Filter for Sleep_Count == 0 (activity bouts)
-                        bout_df_0 = bout_df[bout_df['Sleep_Count'] == 0]
-                        if not bout_df_0.empty:
-                            bout_stats_0 = bout_df_0.groupby('Condition').agg(
-                                Avg_Bout_Length=('Bout_Length', 'mean'),
-                                SEM_Bout_Length=('Bout_Length', lambda x: x.std(ddof=1) / np.sqrt(len(x)))
-                            ).reset_index()
-                            fig_avg_length_0 = px.bar(
-                                bout_stats_0,
-                                x='Condition',
-                                y='Avg_Bout_Length',
-                                color='Condition',
-                                error_y='SEM_Bout_Length',
-                                labels={"Condition": "Condition", "Avg_Bout_Length": "Average Bout Length [min]"},
-                                title="Activity Bout Length in LD"
-                            )
-                            fig_avg_length_0.update_layout(bargap=0.75)
-                            col2.plotly_chart(fig_avg_length_0, use_container_width=True)
-                            st.session_state.fig_avg_bout_length_0 = fig_avg_length_0
-                        else:
-                            col2.info("No activity bouts found for the selected time period(s).")
+                # --- Grouped by Day Bar Chart ---
+                if not combined_grouped.empty:
+                    agg_day = combined_grouped.groupby(['Condition', 'Date']).agg({'Bout_Length_mean': 'mean'}).reset_index()
+                    fig_sleep_bout_by_day = px.bar(
+                        agg_day,
+                        x='Date',
+                        y='Bout_Length_mean',
+                        color='Condition',
+                        barmode='group',
+                        title="Mean Bout Length by Day"
+                    )
+                    col1.plotly_chart(fig_sleep_bout_by_day, use_container_width=True)
+                    st.session_state.fig_sleep_bout_by_day = fig_sleep_bout_by_day
 
-                        col1.dataframe(grouped, hide_index=True)
-                        # add download link for grouped dataframe
-                        col1.download_button('Download Grouped Data', grouped.to_csv(index=False), 'grouped.csv', 'text/csv')
-                        col2.dataframe(grouped2, hide_index=True)
-                        # add download link for grouped2 dataframe
-                        col2.download_button('Download Grouped2 Data', grouped2.to_csv(index=False), 'grouped2.csv', 'text/csv')
+                # --- Grouped by Channel Bar Chart ---
+                if not combined_grouped2.empty:
+                     # Ensure Channel is ordered ch1, ch2, ..., ch32
+                    channel_order = [f'ch{i}' for i in range(1, 33)]
+                    combined_grouped2['Channel'] = pd.Categorical(combined_grouped2['Channel'], categories=channel_order, ordered=True)
+                    agg_channel = combined_grouped2.groupby(['Condition', 'Channel']).agg({'Bout_Length_mean_mean': 'mean'}).reset_index()
+                    agg_channel = agg_channel.sort_values(by=['Channel', 'Condition'])  # Sort by channel order
 
-                        # Make dropdowns for condition selection
-                        condition = col1.selectbox('Select Condition for day', conditions)
-                        condition2 = col2.selectbox('Select Condition for night', conditions2)
+                    agg_channel = combined_grouped2.groupby(['Condition', 'Channel']).agg({'Bout_Length_mean_mean': 'mean'}).reset_index()
+                    fig_sleep_bout_by_channel = px.bar(
+                        agg_channel,
+                        x='Channel',
+                        y='Bout_Length_mean_mean',
+                        color='Condition',
+                        barmode='group',
+                        title="Mean Bout Length by Available Channel"
+                    )
+                    col2.plotly_chart(fig_sleep_bout_by_channel, use_container_width=True)
+                    st.session_state.fig_sleep_bout_by_channel = fig_sleep_bout_by_channel
 
-                        # Filter the dataframes by the selected conditions
-                        grouped1_filtered = grouped1[grouped1['Condition'] == condition]
-                        grouped2_1_filtered = grouped2_1[grouped2_1['Condition'] == condition2]
+                if not combined_bout_df.empty:
+                    st.dataframe(combined_bout_df, use_container_width=True)
+                    st.download_button('Download Sleep Bout Data as CSV', combined_bout_df.to_csv(index=False), 'sleep_bout_data.csv', 'text/csv')
 
-                        # Show the filtered dataframes
-                        col1.dataframe(grouped1_filtered, hide_index=True)
-                        col2.dataframe(grouped2_1_filtered, hide_index=True)
+                # --- Grouped by Day ---
+                if not combined_grouped.empty:
+                    st.subheader("Grouped By Day")
+                    st.dataframe(combined_grouped, use_container_width=True)
+                    st.download_button('Download Grouped by Day Data as CSV', combined_grouped.to_csv(index=False), 'grouped.csv', 'text/csv')
 
-                        # Add download buttons for filtered data
-                        col1.download_button('Download Grouped Day Data', grouped1_filtered.to_csv(index=False), 'grouped1.csv', 'text/csv')
-                        col2.download_button('Download Grouped Night Data', grouped2_1_filtered.to_csv(index=False), 'grouped2_1.csv', 'text/csv')
-                        save_analysis()
-                        
+                # --- Grouped by Channel ---
+                if not combined_grouped2.empty:
+                    st.subheader("Grouped By Channel")
+                    st.dataframe(combined_grouped2, use_container_width=True)
+                    st.download_button('Download Grouped by Channel Data as CSV', combined_grouped2.to_csv(index=False), 'grouped2.csv', 'text/csv')
+            save_analysis()
+    ##########################################################################################
     st.markdown("### Download All Results")
     # Collect all CSV tables you want to include
     csv_tables = {
@@ -1635,16 +1672,14 @@ with tabC:
                     figs_summary.append((fig, label))
                 if df is not None:
                     df = df.copy()
-                    df['Condition'] = label
                     combined_summary_df = pd.concat([combined_summary_df, df], ignore_index=True)
             if figs_summary:
                 import plotly.graph_objs as go
-                color_map = px.colors.qualitative.Plotly
+                
                 combined_fig = go.Figure()
                 for idx, (fig, label) in enumerate(figs_summary):
-                    color = color_map[idx % len(color_map)]
+                    color = px.colors.qualitative.Plotly[idx % len(px.colors.qualitative.Plotly)]
                     for trace in fig.data:
-                        trace.name = label
                         if hasattr(trace, "marker"):
                             trace.marker.color = color
                         if hasattr(trace, "line"):
@@ -1667,16 +1702,13 @@ with tabC:
                     figs_by_day.append((fig, label))
                 if df is not None:
                     df = df.copy()
-                    df['Condition'] = label
                     combined_by_day_df = pd.concat([combined_by_day_df, df], ignore_index=True)
             if figs_by_day:
                 import plotly.graph_objs as go
-                color_map = px.colors.qualitative.Plotly
                 combined_fig = go.Figure()
                 for idx, (fig, label) in enumerate(figs_by_day):
-                    color = color_map[idx % len(color_map)]
+                    color = px.colors.qualitative.Plotly[idx % len(px.colors.qualitative.Plotly)]
                     for trace in fig.data:
-                        trace.name = label
                         if hasattr(trace, "marker"):
                             trace.marker.color = color
                         if hasattr(trace, "line"):
@@ -1695,7 +1727,6 @@ with tabC:
                 df = analysis.get("df_by_LD_DD")
                 if df is not None:
                     df = df.copy()
-                    df['Condition'] = analysis['Condition']
                     combined_ld_dd = pd.concat([combined_ld_dd, df], ignore_index=True)
 
             if not combined_ld_dd.empty:
@@ -1725,16 +1756,14 @@ with tabC:
         with tab0:
             st.subheader("Daily Sleep")
             combined_sleep_analysis = pd.DataFrame()
+    
+            figs = []
+            start_dates = []
             for analysis in loaded_analyses:
                 df = analysis.get("sleep_analysis_df")
                 if df is not None:
                     df = df.copy()
-                    df['Condition'] = analysis['Condition']
                     combined_sleep_analysis = pd.concat([combined_sleep_analysis, df], ignore_index=True)
-
-            figs = []
-            start_dates = []
-            for analysis in loaded_analyses:
                 fig = analysis.get("daily_sleep_profile")
                 if fig is not None and hasattr(fig, "data"):
                     figs.append((fig, analysis['Condition']))
@@ -1748,7 +1777,6 @@ with tabC:
 
             if figs:
                 import plotly.graph_objs as go
-                color_map = px.colors.qualitative.Plotly
                 combined_fig = go.Figure()
                 legend_items = []
 
@@ -1779,9 +1807,8 @@ with tabC:
                             ticktext.append(f"{hour}:00")
 
                 for idx, (fig, label) in enumerate(figs):
-                    color = color_map[idx % len(color_map)]
+                    color = px.colors.qualitative.Plotly[idx % len(px.colors.qualitative.Plotly)]
                     for trace in fig.data:
-                        trace.name = label
                         if hasattr(trace, "marker"):
                             trace.marker.color = color
                         if hasattr(trace, "line"):
@@ -1800,13 +1827,6 @@ with tabC:
                 )
                 st.plotly_chart(combined_fig, use_container_width=True)
 
-                # Add a color legend below the plot
-                st.markdown("**Legend:**")
-                legend_html = ""
-                for label, color in legend_items:
-                    legend_html += f'<span style="display:inline-block;width:16px;height:16px;background-color:{color};margin-right:8px;border-radius:3px;"></span>{label}&nbsp;&nbsp;&nbsp;'
-                st.markdown(legend_html, unsafe_allow_html=True)
-
                 if not combined_sleep_analysis.empty:
                     st.write("**Combined Daily Sleep Analysis Data**")
                     st.dataframe(combined_sleep_analysis)
@@ -1818,7 +1838,6 @@ with tabC:
                 df = analysis.get("avg_sleep_list_df")
                 if df is not None:
                     df = df.copy()
-                    df['Condition'] = analysis['Condition']
                     combined_avg_sleep = pd.concat([combined_avg_sleep, df], ignore_index=True)
             
             figs = []
@@ -1832,9 +1851,8 @@ with tabC:
                 combined_fig = go.Figure()
                 legend_items = []
                 for idx, (fig, label) in enumerate(figs):
-                    color = color_map[idx % len(color_map)]
+                    color = px.colors.qualitative.Plotly[idx % len(px.colors.qualitative.Plotly)]
                     for trace in fig.data:
-                        trace.name = label
                         if hasattr(trace, "marker"):
                             trace.marker.color = color
                         if hasattr(trace, "line"):
@@ -1848,13 +1866,6 @@ with tabC:
                 )
                 st.plotly_chart(combined_fig, use_container_width=True)
 
-                # Add a color legend below the plot
-                st.markdown("**Legend:**")
-                legend_html = ""
-                for label, color in legend_items:
-                    legend_html += f'<span style="display:inline-block;width:16px;height:16px;background-color:{color};margin-right:8px;border-radius:3px;"></span>{label}&nbsp;&nbsp;&nbsp;'
-                st.markdown(legend_html, unsafe_allow_html=True)
-
             if not combined_avg_sleep.empty:
                 st.write("**Combined Average Sleep Data**")
                 st.dataframe(combined_avg_sleep)
@@ -1867,7 +1878,6 @@ with tabC:
                 df = analysis.get("ind_day_night_mean")
                 if df is not None:
                     df = df.copy()
-                    df['Condition'] = analysis['Condition']
                     combined_ind = pd.concat([combined_ind, df], ignore_index=True)
             
             # Box plot: Total Sleep in LD
@@ -1923,11 +1933,8 @@ with tabC:
                 df = analysis.get("ind_sleep_bout_df")
                 if df is not None:
                     df = df.copy()
-                    df['Condition'] = analysis['Condition']
                     combined_bout = pd.concat([combined_bout, df], ignore_index=True)
             
-            
-            # --- First Row: Sleep/Activity Bout Length Bar Charts ---
             col1, col2 = st.columns(2)
             # Sleep Bout Length (Sleep_Count == 1)
             bout_df_1 = combined_bout[combined_bout['Sleep_Count'] == 1]
@@ -1947,15 +1954,16 @@ with tabC:
                 )
                 fig_avg_length_1.update_layout(bargap=0.75)
                 col1.plotly_chart(fig_avg_length_1, use_container_width=True)
+                st.session_state.fig_avg_bout_length_1 = fig_avg_length_1
             else:
-                col1.info("No bouts with Sleep_Count == 1 found.")
+                col1.info(f"No sleep bouts found.")
 
-            # Activity Bout Length (Sleep_Count == 0)
+            # Filter for Sleep_Count == 0 (activity bouts)
             bout_df_0 = combined_bout[combined_bout['Sleep_Count'] == 0]
             if not bout_df_0.empty:
                 bout_stats_0 = bout_df_0.groupby('Condition').agg(
                     Avg_Bout_Length=('Bout_Length', 'mean'),
-                    SEM_Bout_Length=('Bout_Length', lambda x: x.std(ddof=1) / np.sqrt(len(x)))
+                    SEM_Bout_Length=('Bout_Length', lambda x: x.std(ddof=1) / np.sqrt(len(x))) 
                 ).reset_index()
                 fig_avg_length_0 = px.bar(
                     bout_stats_0,
@@ -1968,23 +1976,20 @@ with tabC:
                 )
                 fig_avg_length_0.update_layout(bargap=0.75)
                 col2.plotly_chart(fig_avg_length_0, use_container_width=True)
+                st.session_state.fig_avg_bout_length_0 = fig_avg_length_0
             else:
-                col2.info("No bouts with Sleep_Count == 0 found.")
+                col2.info("No activity bouts found for the selected time period(s).")
             
-            # --- Second Row: Grouped By Day and By Channel ---
             col3, col4 = st.columns(2)
-
-            # Grouped by Day
+            # --- Combined Grouped by Day ---
             grouped_day_combined = pd.DataFrame()
-            for experiment in selected_experiments:
-                analysis = load_analysis(experiment)
+            for analysis in loaded_analyses:
                 df = analysis.get('sleep_grouped')
                 if df is not None:
                     df = df.copy()
-                    df['Experiment'] = experiment
-                    df['Condition'] = analysis['Condition']
                     grouped_day_combined = pd.concat([grouped_day_combined, df], ignore_index=True)
 
+            
             if not grouped_day_combined.empty:
                 agg_day = grouped_day_combined.groupby(['Condition', 'Date']).agg({'Bout_Length_mean': 'mean'}).reset_index()
                 fig3 = px.bar(
@@ -1997,20 +2002,21 @@ with tabC:
                 )
                 col3.plotly_chart(fig3, use_container_width=True)
 
-            
-            # Grouped by Channel
+             # --- Combined Grouped by Channel ---
             grouped_channel_combined = pd.DataFrame()
-            for experiment in selected_experiments:
-                analysis = load_analysis(experiment)
+            for analysis in loaded_analyses:
                 df = analysis.get('sleep_grouped2')
                 if df is not None:
                     df = df.copy()
-                    df['Experiment'] = experiment
-                    df['Condition'] = analysis['Condition']
                     grouped_channel_combined = pd.concat([grouped_channel_combined, df], ignore_index=True)
 
             if not grouped_channel_combined.empty:
-                agg_channel = grouped_channel_combined.groupby(['Condition', 'Channel']).agg({'Bout_Length_mean_mean':'mean'}).reset_index()
+                # Ensure Channel is ordered ch1, ch2, ..., ch32
+                channel_order = [f'ch{i}' for i in range(1, 33)]
+                grouped_channel_combined['Channel'] = pd.Categorical(grouped_channel_combined['Channel'], categories=channel_order, ordered=True)
+                agg_channel = grouped_channel_combined.groupby(['Condition', 'Channel']).agg({'Bout_Length_mean_mean': 'mean'}).reset_index()
+                agg_channel = agg_channel.sort_values(by=['Channel', 'Condition'])  # Sort by channel order
+
                 fig4 = px.bar(
                     agg_channel,
                     x='Channel',

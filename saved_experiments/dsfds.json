@@ -1,0 +1,38 @@
+{
+  "experiment_name": "dsfds",
+  "monitor_name": "Monitor7",
+  "settings": {
+    "ld_dd_analysis": "LD",
+    "ld_dd_settings": {
+      "start_date": "15 Mar 25 00:00:00",
+      "end_date": "19 Mar 25 23:59:59",
+      "LD_DD_Analysis": "LD"
+    },
+    "dam_settings": {
+      "dam_frequency": 3,
+      "dead_fly_threshold": 100,
+      "light_onset_time": "06:00"
+    },
+    "start_offset_days": 1,
+    "end_offset_days": -1,
+    "num_conditions": 2,
+    "conditions": [
+      {
+        "name": "wtsd",
+        "fly_count": 10,
+        "monitor_order": [],
+        "plot_colors": []
+      },
+      {
+        "name": "sdf",
+        "fly_count": 22,
+        "monitor_order": [],
+        "plot_colors": []
+      }
+    ],
+    "dam_frequency": 3,
+    "dead_fly_threshold": 100,
+    "light_onset_time": "06:00"
+  },
+  "saved_time": "2025-07-11 16:11:42"
+}
