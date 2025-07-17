@@ -1452,33 +1452,6 @@ with tabA:
                     st.download_button('Download Grouped by Channel Data as CSV', combined_grouped2.to_csv(index=False), 'grouped2.csv', 'text/csv')
             save_analysis()
     ##########################################################################################
-    st.markdown("### Download All Results")
-    # Collect all CSV tables you want to include
-    csv_tables = {
-        "daily_locomotor_activity.csv": st.session_state.get("daily_locomotor_activity", pd.DataFrame()),
-        "locomotor_activity_by_day.csv": st.session_state.get("locomotor_activity_by_day", pd.DataFrame()),
-        "df_by_LD_DD.csv": st.session_state.get("df_by_LD_DD", pd.DataFrame()),
-        'sleep_analysis_df': st.session_state.get('sleep_analysis_df', pd.DataFrame()),
-        "avg_sleep_list.csv": st.session_state.get("avg_sleep_list_df", pd.DataFrame()),
-        "ind_day_night_mean.csv": st.session_state.get("ind_day_night_mean", pd.DataFrame()),
-        "sleep_grouped.csv": st.session_state.get("grouped1", pd.DataFrame()),
-        "sleep_grouped2.csv": st.session_state.get("grouped2_1", pd.DataFrame()),
-    }
-
-    # Create a zip in memory
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-        for fname, df in csv_tables.items():
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                zip_file.writestr(fname, df.to_csv(index=False))
-    zip_buffer.seek(0)
-
-    st.download_button(
-        label="Download All CSV Tables (ZIP)",
-        data=zip_buffer,
-        file_name="all_experiment_tables.zip",
-        mime="application/zip"
-    )
 
 
     if 'analysis_ran' not in st.session_state:
@@ -1503,13 +1476,56 @@ with tabB:
                     try:
                         with open(file_path, "rb") as f:
                             analysis_obj = pickle.load(f)
+                        csv_tables = {
+                            "daily_locomotor_activity.csv": analysis_obj.get("daily_locomotor_activity", pd.DataFrame()),
+                            "locomotor_activity_by_day.csv": analysis_obj.get("locomotor_activity_by_day", pd.DataFrame()),
+                            "df_by_LD_DD.csv": analysis_obj.get("df_by_LD_DD", pd.DataFrame()),
+                            "sleep_analysis_df.csv": analysis_obj.get("sleep_analysis_df", pd.DataFrame()),
+                            "avg_sleep_list_df.csv": analysis_obj.get("avg_sleep_list_df", pd.DataFrame()),
+                            "ind_day_night_mean.csv": analysis_obj.get("ind_day_night_mean", pd.DataFrame()),
+                            "sleep_grouped.csv": analysis_obj.get("sleep_grouped", pd.DataFrame()),
+                            "sleep_grouped2.csv": analysis_obj.get("sleep_grouped2", pd.DataFrame()),
+                            "ind_sleep_bout_df.csv": analysis_obj.get("ind_sleep_bout_df", pd.DataFrame()),
+                        }
+
+                        zip_buffer = io.BytesIO()
+                        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+                            for fname, df in csv_tables.items():
+                                if isinstance(df, pd.DataFrame) and not df.empty:
+                                    zip_file.writestr(fname, df.to_csv(index=False))
+                        zip_buffer.seek(0)
+
+                        st.download_button(
+                            label="Download All CSV Tables (ZIP)",
+                            data=zip_buffer,
+                            file_name=f"{selected_file.replace('.pkl','')}_tables.zip",
+                            mime="application/zip"
+                        )
                         st.write(f"**Contents of {selected_file}:**")
                         st.header("📋 Metadata")
+                        all_conditions = set()
+                        for key in [
+                            "daily_locomotor_activity",
+                            "locomotor_activity_by_day",
+                            "df_by_LD_DD",
+                            "sleep_analysis_df",
+                            "avg_sleep_list_df",
+                            "ind_day_night_mean",
+                            "sleep_grouped",
+                            "sleep_grouped2",
+                            "ind_sleep_bout_df"
+                        ]:
+                            df = analysis_obj.get(key)
+                            if isinstance(df, pd.DataFrame) and "Condition" in df.columns:
+                                all_conditions.update(df["Condition"].unique())
+                        if not all_conditions:
+                            all_conditions = {metadata.get('condition_name', 'N/A')}
+
                         metadata = analysis_obj.get('metadata', {})
                         if metadata:
                             col1, col2, col3 = st.columns(3)
                             with col1:
-                                st.markdown(f"**Condition:** `{metadata.get('condition_name', 'N/A')}`")
+                                st.markdown(f"**Condition(s):** `{', '.join(map(str, all_conditions))}`")
                                 st.markdown(f"**Monitor:** `{metadata.get('monitor_name', 'N/A')}`")
                             with col2:
                                 st.markdown(f"**Start Date:** `{metadata.get('start_date', 'N/A')}`")
