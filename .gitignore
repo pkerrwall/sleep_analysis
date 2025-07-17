@@ -1,3 +1,8 @@
+saved_analysis/
+saved_experiments/
+saved_monitors/
+uploaded_monitors/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
