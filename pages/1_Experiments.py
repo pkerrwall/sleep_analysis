@@ -220,6 +220,11 @@ with tabA:
 
     st.session_state["experiment_name"] = experiment_name
 
+    # --- Warning if experiment name already exists ---
+    experiment_path = os.path.join(EXPERIMENT_SAVE_DIR, f"{experiment_name}.json")
+    if os.path.exists(experiment_path):
+        st.sidebar.warning(f"⚠️ An experiment named '{experiment_name}' already exists and will be overwritten if you continue.")
+
     # Initialize session state for current monitor
     if 'current_monitor' not in st.session_state:
         st.session_state.current_monitor = None
@@ -1441,9 +1446,20 @@ with tabA:
 
                 # --- Grouped by Day ---
                 if not combined_grouped.empty:
-                    st.subheader("Grouped By Day")
-                    st.dataframe(combined_grouped, use_container_width=True)
-                    st.download_button('Download Grouped by Day Data as CSV', combined_grouped.to_csv(index=False), 'grouped.csv', 'text/csv')
+                    # Group by Condition, Channel, Date, and day_or_night, then average Bout_Length_mean
+                    avg_by_day_night = combined_grouped.groupby(
+                        ['Condition', 'Channel', 'Date']
+                    )['Bout_Length_mean'].mean().reset_index()
+
+                    st.session_state.grouped = avg_by_day_night
+                    st.subheader("Grouped By Day (Averaged)")
+                    st.dataframe(avg_by_day_night, use_container_width=True)
+                    st.download_button(
+                        'Download Grouped by Day (Averaged) as CSV',
+                        avg_by_day_night.to_csv(index=False),
+                        'grouped_by_day_averaged.csv',
+                        'text/csv'
+                    )
 
                 # --- Grouped by Channel ---
                 if not combined_grouped2.empty:
@@ -1469,163 +1485,166 @@ with tabB:
         analyses_dir = "saved_analysis"
         if os.path.exists(analyses_dir):
             files = [f for f in os.listdir(analyses_dir) if f.endswith(".pkl")]
-            if files:
-                selected_file = st.selectbox("Select an analysis to view:", files)
-                if selected_file:
-                    file_path = os.path.join(analyses_dir, selected_file)
-                    try:
-                        with open(file_path, "rb") as f:
-                            analysis_obj = pickle.load(f)
-                        csv_tables = {
-                            "daily_locomotor_activity.csv": analysis_obj.get("daily_locomotor_activity", pd.DataFrame()),
-                            "locomotor_activity_by_day.csv": analysis_obj.get("locomotor_activity_by_day", pd.DataFrame()),
-                            "df_by_LD_DD.csv": analysis_obj.get("df_by_LD_DD", pd.DataFrame()),
-                            "sleep_analysis_df.csv": analysis_obj.get("sleep_analysis_df", pd.DataFrame()),
-                            "avg_sleep_list_df.csv": analysis_obj.get("avg_sleep_list_df", pd.DataFrame()),
-                            "ind_day_night_mean.csv": analysis_obj.get("ind_day_night_mean", pd.DataFrame()),
-                            "sleep_grouped.csv": analysis_obj.get("sleep_grouped", pd.DataFrame()),
-                            "sleep_grouped2.csv": analysis_obj.get("sleep_grouped2", pd.DataFrame()),
-                            "ind_sleep_bout_df.csv": analysis_obj.get("ind_sleep_bout_df", pd.DataFrame()),
-                        }
+            display_names = [f.replace("_analysis.pkl", "") for f in files]
+            selected_display = st.selectbox("Select an analysis to view:", display_names)
 
-                        zip_buffer = io.BytesIO()
-                        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-                            for fname, df in csv_tables.items():
-                                if isinstance(df, pd.DataFrame) and not df.empty:
-                                    zip_file.writestr(fname, df.to_csv(index=False))
-                        zip_buffer.seek(0)
+            # Map back to the actual filename when needed:
+            if selected_display:
+                selected_file = files[display_names.index(selected_display)]
+                file_path = os.path.join(analyses_dir, selected_file)
+                try:
+                    with open(file_path, "rb") as f:
+                        analysis_obj = pickle.load(f)
+                    csv_tables = {
+                        "daily_locomotor_activity.csv": analysis_obj.get("daily_locomotor_activity", pd.DataFrame()),
+                        "locomotor_activity_by_day.csv": analysis_obj.get("locomotor_activity_by_day", pd.DataFrame()),
+                        "df_by_LD_DD.csv": analysis_obj.get("df_by_LD_DD", pd.DataFrame()),
+                        "sleep_analysis_df.csv": analysis_obj.get("sleep_analysis_df", pd.DataFrame()),
+                        "avg_sleep_list_df.csv": analysis_obj.get("avg_sleep_list_df", pd.DataFrame()),
+                        "ind_day_night_mean.csv": analysis_obj.get("ind_day_night_mean", pd.DataFrame()),
+                        "sleep_grouped.csv": analysis_obj.get("sleep_grouped", pd.DataFrame()),
+                        "sleep_grouped2.csv": analysis_obj.get("sleep_grouped2", pd.DataFrame()),
+                        "ind_sleep_bout_df.csv": analysis_obj.get("ind_sleep_bout_df", pd.DataFrame()),
+                    }
 
-                        st.download_button(
-                            label="Download All CSV Tables (ZIP)",
-                            data=zip_buffer,
-                            file_name=f"{selected_file.replace('.pkl','')}_tables.zip",
-                            mime="application/zip"
-                        )
-                        st.write(f"**Contents of {selected_file}:**")
-                        st.header("📋 Metadata")
-                        all_conditions = set()
-                        for key in [
-                            "daily_locomotor_activity",
-                            "locomotor_activity_by_day",
-                            "df_by_LD_DD",
-                            "sleep_analysis_df",
-                            "avg_sleep_list_df",
-                            "ind_day_night_mean",
-                            "sleep_grouped",
-                            "sleep_grouped2",
-                            "ind_sleep_bout_df"
-                        ]:
-                            df = analysis_obj.get(key)
-                            if isinstance(df, pd.DataFrame) and "Condition" in df.columns:
-                                all_conditions.update(df["Condition"].unique())
-                        if not all_conditions:
-                            all_conditions = {metadata.get('condition_name', 'N/A')}
+                    zip_buffer = io.BytesIO()
+                    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+                        for fname, df in csv_tables.items():
+                            if isinstance(df, pd.DataFrame) and not df.empty:
+                                zip_file.writestr(fname, df.to_csv(index=False))
+                    zip_buffer.seek(0)
 
-                        metadata = analysis_obj.get('metadata', {})
-                        if metadata:
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.markdown(f"**Condition(s):** `{', '.join(map(str, all_conditions))}`")
-                                st.markdown(f"**Monitor:** `{metadata.get('monitor_name', 'N/A')}`")
-                            with col2:
-                                st.markdown(f"**Start Date:** `{metadata.get('start_date', 'N/A')}`")
-                                st.markdown(f"**End Date:** `{metadata.get('end_date', 'N/A')}`")
-                            with col3:
-                                st.markdown(f"**LD/DD Cycle:** `{metadata.get('ld_dd_analysis', 'N/A')}`")
-                                st.markdown(f"**Light Onset:** `{metadata.get('light_onset', 'N/A')}`")
-                        else:
-                            st.info("No metadata found in this experiment.")
+                    st.download_button(
+                        label="Download All CSV Tables (ZIP)",
+                        data=zip_buffer,
+                        file_name=f"{selected_file.replace('.pkl','')}_tables.zip",
+                        mime="application/zip"
+                    )
+                    st.write(f"**Contents of {selected_file}:**")
+                    st.header("📋 Metadata")
+                    all_conditions = set()
+                    for key in [
+                        "daily_locomotor_activity",
+                        "locomotor_activity_by_day",
+                        "df_by_LD_DD",
+                        "sleep_analysis_df",
+                        "avg_sleep_list_df",
+                        "ind_day_night_mean",
+                        "sleep_grouped",
+                        "sleep_grouped2",
+                        "ind_sleep_bout_df"
+                    ]:
+                        df = analysis_obj.get(key)
+                        if isinstance(df, pd.DataFrame) and "Condition" in df.columns:
+                            all_conditions.update(df["Condition"].unique())
+                    if not all_conditions:
+                        all_conditions = {metadata.get('condition_name', 'N/A')}
 
-                        # --- Show tables and graphs under 5 tabs ---
-                        tab, tab0, tab1, tab2, tab3, tab4 = st.tabs(
-                            ["Daily Locomotor Activity", "Daily Sleep", "Average Sleep", "Individual Sleep", "Sleep Bout", "Raw Data"]
-                        )
-                        # --- Tab: Daily Locomotor Activity ---
-                        with tab:
-                            st.subheader("Daily Locomotor Activity")
-                            col1, col2, col3 = st.columns(3)
-                            if 'fig_summary_locomotor' in analysis_obj:
-                                col1.plotly_chart(analysis_obj['fig_summary_locomotor'], use_container_width=True)
-                            if "daily_locomotor_activity" in analysis_obj:
-                                st.write("Daily Locomotor Activity DataFrame")
-                                st.dataframe(analysis_obj["daily_locomotor_activity"])
-                            if 'fig_by_day_activity' in analysis_obj:
-                                col2.plotly_chart(analysis_obj['fig_by_day_activity'], use_container_width=True)
-                            if "locomotor_activity_by_day" in analysis_obj:
-                                st.write("Locomotor Activity by Day DataFrame")
-                                st.dataframe(analysis_obj["locomotor_activity_by_day"])
-                            if 'fig_by_LD_DD_activity' in analysis_obj:
-                                col3.plotly_chart(analysis_obj['fig_by_LD_DD_activity'], use_container_width=True)
-                            if "df_by_LD_DD" in analysis_obj:
-                                st.write("DF by LD/DD DataFrame")
-                                st.dataframe(analysis_obj["df_by_LD_DD"])
-                        # --- Tab 0: Daily Sleep ---
-                        with tab0:
-                            st.subheader("Daily Sleep")                         
-                            if "daily_sleep_profile" in analysis_obj:
-                                st.write("Daily Sleep Profile")
-                                st.plotly_chart(analysis_obj["daily_sleep_profile"], use_container_width=True)
-                            if "sleep_analysis_df" in analysis_obj:
-                                st.write("Sleep Analysis DataFrame")
-                                st.dataframe(analysis_obj["sleep_analysis_df"])
-                        # --- Tab 1: Average Sleep ---
-                        with tab1:
-                            st.subheader("Average Sleep")
-                            if "average_sleep_profile" in analysis_obj:
-                                st.write("Average Sleep Profile")
-                                st.plotly_chart(analysis_obj["average_sleep_profile"], use_container_width=True)
-                            if "avg_sleep_list_df" in analysis_obj:
-                                st.write("Average Sleep List DataFrame")
-                                st.dataframe(analysis_obj["avg_sleep_list_df"])
-                        # --- Tab 2: Individual Sleep ---
-                        with tab2:
-                            st.subheader("Individual Sleep")
-                            col1, col2, col3 = st.columns(3)
-                            if "total_sleep_in_LD" in analysis_obj:
-                                col1.plotly_chart(analysis_obj["total_sleep_in_LD"], use_container_width=True)
-                            if "daytime_sleep_in_LD" in analysis_obj:
-                                col2.plotly_chart(analysis_obj["daytime_sleep_in_LD"], use_container_width=True)
-                            if "nighttime_sleep_in_LD" in analysis_obj:
-                                col3.plotly_chart(analysis_obj["nighttime_sleep_in_LD"], use_container_width=True)
-                            if "ind_day_night_mean" in analysis_obj:
-                                st.write("Individual Day/Night Mean DataFrame")
-                                st.dataframe(analysis_obj["ind_day_night_mean"])
-                        # --- Tab 3: Sleep Bout ---
-                        with tab3:
-                            st.subheader("Sleep Bout")
-                            col1, col2 = st.columns(2)
-                            if "fig_sleep_bout_by_day" in analysis_obj:
-                                col1.plotly_chart(analysis_obj["fig_sleep_bout_by_day"], use_container_width=True)
-                            if "fig_sleep_bout_by_channel" in analysis_obj:
-                                col2.plotly_chart(analysis_obj["fig_sleep_bout_by_channel"], use_container_width=True)
-                            if "fig_avg_bout_length_1" in analysis_obj:
-                                col1.plotly_chart(analysis_obj["fig_avg_bout_length_1"], use_container_width=True)
-                            if "fig_avg_bout_length_0" in analysis_obj:
-                                col2.plotly_chart(analysis_obj["fig_avg_bout_length_0"], use_container_width=True)
-                            if "ind_sleep_bout_df" in analysis_obj:
-                                st.write("Sleep Bout DataFrame")
-                                st.dataframe(analysis_obj["ind_sleep_bout_df"])
-                        # --- Tab 4: Raw Data ---
-                        with tab4:
-                            st.subheader("Raw Data")
-                            if "daily_locomotor_activity" in analysis_obj:
-                                st.write("Daily Locomotor Activity")
-                                st.dataframe(analysis_obj["daily_locomotor_activity"])
-                            if "locomotor_activity_by_day" in analysis_obj:
-                                st.write("Locomotor Activity by Day")
-                                st.dataframe(analysis_obj["locomotor_activity_by_day"])
-                            if "df_by_LD_DD" in analysis_obj:
-                                st.write("DF by LD/DD")
-                                st.dataframe(analysis_obj["df_by_LD_DD"])
-                            if "sleep_grouped" in analysis_obj:
-                                st.write("Sleep Grouped")
-                                st.dataframe(analysis_obj["sleep_grouped"])
-                            if "sleep_grouped2" in analysis_obj:
-                                st.write("Sleep Grouped2")
-                                st.dataframe(analysis_obj["sleep_grouped2"])
+                    metadata = analysis_obj.get('metadata', {})
+                    if metadata:
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.markdown(f"**Condition(s):** `{', '.join(map(str, all_conditions))}`")
+                            st.markdown(f"**Monitor:** `{metadata.get('monitor_name', 'N/A')}`")
+                        with col2:
+                            st.markdown(f"**Start Date:** `{metadata.get('start_date', 'N/A')}`")
+                            st.markdown(f"**End Date:** `{metadata.get('end_date', 'N/A')}`")
+                        with col3:
+                            st.markdown(f"**LD/DD Cycle:** `{metadata.get('ld_dd_analysis', 'N/A')}`")
+                            st.markdown(f"**Light Onset:** `{metadata.get('light_onset', 'N/A')}`")
+                    else:
+                        st.info("No metadata found in this experiment.")
 
-                    except Exception as e:
-                        st.error(f"Could not load {selected_file}: {e}")
+                    # --- Show tables and graphs under 5 tabs ---
+                    tab, tab0, tab1, tab2, tab3, tab4 = st.tabs(
+                        ["Daily Locomotor Activity", "Daily Sleep", "Average Sleep", "Individual Sleep", "Sleep Bout", "Raw Data"]
+                    )
+                    # --- Tab: Daily Locomotor Activity ---
+                    with tab:
+                        st.subheader("Daily Locomotor Activity")
+                        col1, col2, col3 = st.columns(3)
+                        if 'fig_summary_locomotor' in analysis_obj:
+                            col1.plotly_chart(analysis_obj['fig_summary_locomotor'], use_container_width=True)
+                        if "daily_locomotor_activity" in analysis_obj:
+                            st.write("Daily Locomotor Activity DataFrame")
+                            st.dataframe(analysis_obj["daily_locomotor_activity"])
+                        if 'fig_by_day_activity' in analysis_obj:
+                            col2.plotly_chart(analysis_obj['fig_by_day_activity'], use_container_width=True)
+                        if "locomotor_activity_by_day" in analysis_obj:
+                            st.write("Locomotor Activity by Day DataFrame")
+                            st.dataframe(analysis_obj["locomotor_activity_by_day"])
+                        if 'fig_by_LD_DD_activity' in analysis_obj:
+                            col3.plotly_chart(analysis_obj['fig_by_LD_DD_activity'], use_container_width=True)
+                        if "df_by_LD_DD" in analysis_obj:
+                            st.write("DF by LD/DD DataFrame")
+                            st.dataframe(analysis_obj["df_by_LD_DD"])
+                    # --- Tab 0: Daily Sleep ---
+                    with tab0:
+                        st.subheader("Daily Sleep")                         
+                        if "daily_sleep_profile" in analysis_obj:
+                            st.write("Daily Sleep Profile")
+                            st.plotly_chart(analysis_obj["daily_sleep_profile"], use_container_width=True)
+                        if "sleep_analysis_df" in analysis_obj:
+                            st.write("Sleep Analysis DataFrame")
+                            st.dataframe(analysis_obj["sleep_analysis_df"])
+                    # --- Tab 1: Average Sleep ---
+                    with tab1:
+                        st.subheader("Average Sleep")
+                        if "average_sleep_profile" in analysis_obj:
+                            st.write("Average Sleep Profile")
+                            st.plotly_chart(analysis_obj["average_sleep_profile"], use_container_width=True)
+                        if "avg_sleep_list_df" in analysis_obj:
+                            st.write("Average Sleep List DataFrame")
+                            st.dataframe(analysis_obj["avg_sleep_list_df"])
+                    # --- Tab 2: Individual Sleep ---
+                    with tab2:
+                        st.subheader("Individual Sleep")
+                        col1, col2, col3 = st.columns(3)
+                        if "total_sleep_in_LD" in analysis_obj:
+                            col1.plotly_chart(analysis_obj["total_sleep_in_LD"], use_container_width=True)
+                        if "daytime_sleep_in_LD" in analysis_obj:
+                            col2.plotly_chart(analysis_obj["daytime_sleep_in_LD"], use_container_width=True)
+                        if "nighttime_sleep_in_LD" in analysis_obj:
+                            col3.plotly_chart(analysis_obj["nighttime_sleep_in_LD"], use_container_width=True)
+                        if "ind_day_night_mean" in analysis_obj:
+                            st.write("Individual Day/Night Mean DataFrame")
+                            st.dataframe(analysis_obj["ind_day_night_mean"])
+                    # --- Tab 3: Sleep Bout ---
+                    with tab3:
+                        st.subheader("Sleep Bout")
+                        col1, col2 = st.columns(2)
+                        if "fig_sleep_bout_by_day" in analysis_obj:
+                            col1.plotly_chart(analysis_obj["fig_sleep_bout_by_day"], use_container_width=True)
+                        if "fig_sleep_bout_by_channel" in analysis_obj:
+                            col2.plotly_chart(analysis_obj["fig_sleep_bout_by_channel"], use_container_width=True)
+                        if "fig_avg_bout_length_1" in analysis_obj:
+                            col1.plotly_chart(analysis_obj["fig_avg_bout_length_1"], use_container_width=True)
+                        if "fig_avg_bout_length_0" in analysis_obj:
+                            col2.plotly_chart(analysis_obj["fig_avg_bout_length_0"], use_container_width=True)
+                        if "ind_sleep_bout_df" in analysis_obj:
+                            st.write("Sleep Bout DataFrame")
+                            st.dataframe(analysis_obj["ind_sleep_bout_df"])
+                    # --- Tab 4: Raw Data ---
+                    with tab4:
+                        st.subheader("Raw Data")
+                        if "daily_locomotor_activity" in analysis_obj:
+                            st.write("Daily Locomotor Activity")
+                            st.dataframe(analysis_obj["daily_locomotor_activity"])
+                        if "locomotor_activity_by_day" in analysis_obj:
+                            st.write("Locomotor Activity by Day")
+                            st.dataframe(analysis_obj["locomotor_activity_by_day"])
+                        if "df_by_LD_DD" in analysis_obj:
+                            st.write("DF by LD/DD")
+                            st.dataframe(analysis_obj["df_by_LD_DD"])
+                        if "sleep_grouped" in analysis_obj:
+                            st.write("Sleep Grouped")
+                            st.dataframe(analysis_obj["sleep_grouped"])
+                        if "sleep_grouped2" in analysis_obj:
+                            st.write("Sleep Grouped2")
+                            st.dataframe(analysis_obj["sleep_grouped2"])
+
+                except Exception as e:
+                    st.error(f"Could not load {selected_file}: {e}")
             else:
                 st.info("No analyses found in the directory.")
         else:
@@ -1973,7 +1992,7 @@ with tabC:
                 st.session_state.fig_avg_bout_length_1 = fig_avg_length_1
             else:
                 col1.info(f"No sleep bouts found.")
-
+                
             # Filter for Sleep_Count == 0 (activity bouts)
             bout_df_0 = combined_bout[combined_bout['Sleep_Count'] == 0]
             if not bout_df_0.empty:
