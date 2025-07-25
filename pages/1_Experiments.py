@@ -79,6 +79,7 @@ def save_analysis():
         'ind_sleep_bout_df': st.session_state.get('ind_sleep_bout_df'),
         'sleep_grouped': st.session_state.get('grouped'),
         'sleep_grouped2': st.session_state.get('grouped2'),
+        'available_channels': st.session_state.get('available_channels', []),
 
         # Plots as figure objects
         'fig_summary_locomotor': st.session_state.get('fig_summary'),
